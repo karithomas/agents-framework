@@ -11,9 +11,9 @@ Built by a Front End Engineer at FantasyPros to automate planning, ticket manage
 | Agent | Name | Schedule | Description |
 |-------|------|----------|-------------|
 | Weekly Planner | **Scotty** | Mon 8am + Tue–Fri 8am | Builds a weekly ToDo list from Linear tickets every Monday and sends a daily digest each morning |
+| Linear Ticket Drafter | **Lenny** | On startup + every 30 min + on demand | Reads active Linear tickets and adds a markdown breakdown comment with actionable steps |
 | Slack Digest | **TBD** | TBD | Summarizes unread Slack messages and highlights important threads |
 | Code Review Helper | **TBD** | On demand | Assists with PR reviews and code feedback |
-| Linear Ticket Drafter | **TBD** | On demand | Drafts well-structured Linear tickets from plain language descriptions |
 
 ---
 
@@ -33,7 +33,8 @@ Built by a Front End Engineer at FantasyPros to automate planning, ticket manage
 ```
 agents-framework/
 ├── agents/
-│   └── scotty.js          # Weekly planner agent
+│   ├── scotty.js          # Weekly planner agent
+│   └── lenny.js           # Linear ticket drafter agent
 ├── core/
 │   ├── claude.js          # Anthropic API wrapper
 │   ├── slack.js           # Slack SDK wrapper
@@ -43,6 +44,7 @@ agents-framework/
 ├── data/
 │   └── memory.json        # Agent memory (gitignored)
 ├── index.js               # Entry point — registers all agents
+├── lenny.js               # On-demand Lenny trigger script
 ├── nodemon.json           # Nodemon config
 ├── .editorconfig          # Tab-based formatting rules
 ├── .env                   # API keys (gitignored)
@@ -90,6 +92,7 @@ SLACK_BOT_TOKEN=xoxb-your-token-here
 SLACK_SIGNING_SECRET=your_signing_secret_here
 SLACK_YOUR_USER_ID=your_slack_member_id_here
 LINEAR_API_KEY=your_linear_key_here
+LINEAR_USER_ID=your_linear_user_id_here
 NODE_ENV=development
 ```
 
@@ -108,6 +111,53 @@ npm run dev
 # Production
 npm start
 ```
+
+---
+
+## Agent Details
+
+### 🚀 Scotty — Weekly Planner
+
+Scotty runs automatically on a schedule and communicates exclusively via Slack DM.
+
+| Trigger | Action |
+|---------|--------|
+| Every Monday at 8am | Fetches all active Linear tickets, builds a structured weekly ToDo list grouped by priority, and sends it to your Slack DM |
+| Tue–Fri at 8am | Reads the saved weekly plan from memory and sends a focused daily digest for that specific day |
+
+Scotty saves the weekly plan to `data/memory.json` so daily digests don't require additional Linear or Claude API calls.
+
+---
+
+### 🎟️ Lenny — Linear Ticket Drafter
+
+Lenny reads your active Linear tickets and adds a detailed markdown breakdown as a comment on each ticket, giving you a clear checklist of steps to complete the work.
+
+| Trigger | Action |
+|---------|--------|
+| On startup | Scans all active assigned tickets and processes any that don't already have a Lenny comment |
+| Every 30 minutes | Polls for recently updated tickets and processes any new ones |
+| On demand | Run `node lenny.js TICKET-ID` to process a specific ticket immediately |
+
+**How Lenny works:**
+1. Fetches your active Linear tickets
+2. Skips any ticket that already has a Lenny breakdown comment
+3. Sends each ticket to Claude for analysis
+4. Claude decides if the ticket needs sub-issues or just a comment breakdown
+5. Adds a formatted markdown comment to the ticket with a summary, steps, and checkboxes
+6. Saves processed ticket IDs to memory to avoid reprocessing
+
+**On-demand usage:**
+```bash
+node lenny.js CFP-360
+node lenny.js PRO-514
+```
+
+**Note:** Sub-issue creation is currently disabled by default. When re-enabled, sub-issues will be automatically assigned to you and set to "In the Hole" state for review.
+
+**Lenny skips:**
+- Tickets already containing a Lenny breakdown comment
+- Completed or cancelled tickets
 
 ---
 
@@ -131,7 +181,10 @@ npm start
 
 ### Linear API Key
 1. Go to Linear → Settings → **Security & Access**
-2. Under **Personal API Keys** → **New API Key**
+2. Under **Personal API Keys** → **New API key**
+
+### Linear User ID
+Your Linear user ID is a UUID used to auto-assign issues Lenny creates. It is fetched once using the `getMyLinearId` utility in `core/linear.js` and stored in `.env` as `LINEAR_USER_ID`.
 
 ---
 
@@ -175,31 +228,3 @@ export default function myAgent() {
 import myAgent from './agents/myagent.js';
 myAgent();
 ```
-
-That's it — one file, one import.
-
----
-
-## Cron Schedule Reference
-
-| Schedule | Expression |
-|----------|------------|
-| Every Monday at 8am | `0 8 * * 1` |
-| Tue–Fri at 8am | `0 8 * * 2-5` |
-| Weekdays at 9am | `0 9 * * 1-5` |
-| Every day at 7:30am | `30 7 * * *` |
-
----
-
-## Environment
-
-This framework is designed to run locally on your machine during work hours. Future options for always-on deployment include a small VPS, Railway, or a scheduled cloud function.
-
----
-
-## Notes
-
-- `data/memory.json` is gitignored — agents persist state locally between runs
-- `.env` is gitignored — never commit API keys
-- All agents use ES module syntax (`import/export`) — `"type": "module"` is set in `package.json`
-- Code style: tabs, 2-space width, enforced via `.editorconfig`
