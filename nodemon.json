@@ -1,0 +1,5 @@
+{
+	"watch": ["agents", "core", "index.js"],
+	"ignore": ["data/*"],
+	"ext": "js,json"
+}
