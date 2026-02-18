@@ -9,13 +9,13 @@ export async function getMyIssues(agentName) {
 	try {
 		const me = await client.viewer;
 		const issues = await me.assignedIssues({
-	 filter: {
-		 state: {
-		type: {
-			nin: ['completed', 'cancelled'],
-		},
-		 },
-	 },
+			filter: {
+				state: {
+					type: {
+						nin: ['completed', 'cancelled'],
+					},
+				},
+			},
 		});
 
 		const formatted = await Promise.all(issues.nodes.map(async (issue) => ({
@@ -35,15 +35,70 @@ export async function getMyIssues(agentName) {
 	}
 }
 
+export async function getIssueDetails(agentName, issueId) {
+	try {
+		const issue = await client.issue(issueId);
+		const state = await issue.state;
+		const comments = await issue.comments();
+		const children = await issue.children();
+
+		return {
+			id: issue.identifier,
+			title: issue.title,
+			description: issue.description || '',
+			priority: issue.priorityLabel,
+			state: state?.name || 'Unknown',
+			url: issue.url,
+			comments: comments.nodes.map((c) => ({
+				id: c.id,
+				body: c.body,
+			})),
+			childCount: children.nodes.length,
+		};
+	} catch (error) {
+		console.error(`[${agentName}] Linear get issue error:`, error.message);
+		throw error;
+	}
+}
+
+export async function addComment(agentName, issueId, body) {
+	try {
+		const issue = await client.issue(issueId);
+		await client.createComment({
+			issueId: issue.id,
+			body,
+		});
+		console.log(`[${agentName}] Comment added to ${issueId}`);
+	} catch (error) {
+		console.error(`[${agentName}] Linear comment error:`, error.message);
+		throw error;
+	}
+}
+
+export async function createChildIssue(agentName, { title, description, parentId, teamId }) {
+	try {
+		const issue = await client.createIssue({
+			title,
+			description,
+			parentId,
+			teamId,
+		});
+		console.log(`[${agentName}] Created child issue: ${title}`);
+		return issue;
+	} catch (error) {
+		console.error(`[${agentName}] Linear create child issue error:`, error.message);
+		throw error;
+	}
+}
+
 export async function createIssue(agentName, { title, description, teamId, priority }) {
 	try {
 		const issue = await client.createIssue({
-	 title,
-	 description,
-	 teamId,
-	 priority,
+			title,
+			description,
+			teamId,
+			priority,
 		});
-
 		console.log(`[${agentName}] Created Linear issue: ${title}`);
 		return issue;
 	} catch (error) {
@@ -56,15 +111,58 @@ export async function getTeams(agentName) {
 	try {
 		const teams = await client.teams();
 		const formatted = teams.nodes.map((team) => ({
-	 id: team.id,
-	 name: team.name,
-	 key: team.key,
+			id: team.id,
+			name: team.name,
+			key: team.key,
 		}));
-
 		console.log(`[${agentName}] Fetched ${formatted.length} teams`);
 		return formatted;
 	} catch (error) {
 		console.error(`[${agentName}] Linear teams error:`, error.message);
+		throw error;
+	}
+}
+
+export async function getMyRecentlyAssigned(agentName, sinceMinutes = 30) {
+	try {
+		const me = await client.viewer;
+		const issues = await me.assignedIssues({
+			filter: {
+				updatedAt: { gte: new Date(Date.now() - sinceMinutes * 60 * 1000).toISOString() },
+				state: {
+					type: { nin: ['completed', 'canceled'] },
+				},
+			},
+		});
+
+		const formatted = await Promise.all(issues.nodes.map(async (issue) => ({
+			id: issue.identifier,
+			linearId: issue.id,
+			title: issue.title,
+			description: issue.description || '',
+			priority: issue.priorityLabel,
+			state: (await issue.state)?.name || 'Unknown',
+			url: issue.url,
+		})));
+
+		console.log(`[${agentName}] Found ${formatted.length} recently assigned issues`);
+		return formatted;
+	} catch (error) {
+		console.error(`[${agentName}] Linear recent assigned error:`, error.message);
+		throw error;
+	}
+}
+
+export async function getTeamStates(agentName, teamId) {
+	try {
+		const team = await client.team(teamId);
+		const states = await team.states();
+		states.nodes.forEach((s) => {
+			console.log(`[${agentName}] State: ${s.name} | ID: ${s.id}`);
+		});
+		return states.nodes;
+	} catch (error) {
+		console.error(`[${agentName}] Error fetching states:`, error.message);
 		throw error;
 	}
 }
