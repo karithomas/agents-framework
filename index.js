@@ -9,7 +9,7 @@ console.log(`Started at: ${new Date().toLocaleString()}`);
 console.log('');
 
 scotty();
-// lenny();
+lenny();
 
 listAgents();
 
