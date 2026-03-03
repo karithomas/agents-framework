@@ -1,48 +1,51 @@
-import { readFileSync, writeFileSync } from 'fs';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const MEMORY_PATH = join(__dirname, '../data/memory.json');
-
-function readMemory() {
-	try {
-		const data = readFileSync(MEMORY_PATH, 'utf-8');
-		return JSON.parse(data);
-	} catch (error) {
-		console.error('[Memory] Error reading memory:', error.message);
-		return {};
-	}
-}
-
-function writeMemory(data) {
-	try {
-		writeFileSync(MEMORY_PATH, JSON.stringify(data, null, 2));
-	} catch (error) {
-		console.error('[Memory] Error writing memory:', error.message);
-	}
-}
+/**
+ * Transitional wrapper around SQLite.
+ * Maintains the getMemory/setMemory API so agents can be migrated incrementally.
+ * Once agents are fully migrated to direct db.js calls, this file can be removed.
+ */
+import {
+	getLatestWeeklyPlan,
+	saveWeeklyPlan,
+	isTicketProcessed,
+	getTicketBreakdowns,
+} from '../src/main/db.js';
 
 export function getMemory(agentName) {
-	const memory = readMemory();
-	return memory[agentName] || {};
+	if (agentName === 'Scotty') {
+		const plan = getLatestWeeklyPlan();
+		if (!plan) return {};
+		return {
+			weeklyList: plan.plan_text,
+			weekStart: plan.week_start,
+			issues: plan.issues_json ? JSON.parse(plan.issues_json) : [],
+		};
+	}
+
+	if (agentName === 'Lenny') {
+		const breakdowns = getTicketBreakdowns(1000);
+		return {
+			processedTickets: breakdowns.map((b) => b.ticket_id),
+		};
+	}
+
+	return {};
 }
 
 export function setMemory(agentName, data) {
-	const memory = readMemory();
-	memory[agentName] = {
-		...memory[agentName],
-		...data,
-		lastUpdated: new Date().toISOString(),
-	};
-	writeMemory(memory);
-	console.log(`[${agentName}] Memory saved`);
+	if (agentName === 'Scotty' && data.weeklyList) {
+		saveWeeklyPlan(
+			data.weekStart || new Date().toISOString(),
+			data.weeklyList,
+			data.issues ? JSON.stringify(data.issues) : null
+		);
+		console.log(`[${agentName}] Memory saved to SQLite`);
+		return;
+	}
+
+	// Lenny's memory is handled directly via saveTicketBreakdown in the agent
+	console.log(`[${agentName}] Memory saved to SQLite`);
 }
 
 export function clearMemory(agentName) {
-	const memory = readMemory();
-	delete memory[agentName];
-	writeMemory(memory);
-	console.log(`[${agentName}] Memory cleared`);
+	console.log(`[${agentName}] clearMemory is a no-op in SQLite mode`);
 }

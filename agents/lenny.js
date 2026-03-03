@@ -1,14 +1,15 @@
-import { registerAgent } from '../core/scheduler.js';
+import { registerAgent } from '../core/agent-registry.js';
 import { askClaude } from '../core/claude.js';
 import { sendDM } from '../core/slack.js';
-import { getMemory, setMemory } from '../core/memory.js';
 import {
 	getMyIssues,
 	getIssueDetails,
 	addComment,
 	createChildIssue,
 	getTeams,
+	getMyRecentlyAssigned,
 } from '../core/linear.js';
+import { isTicketProcessed, saveTicketBreakdown, getSetting } from '../src/main/db.js';
 
 const AGENT_NAME = 'Lenny';
 
@@ -127,66 +128,68 @@ export async function processTicket(ticketId) {
 		console.log(`[${AGENT_NAME}] Created ${analysis.subIssues.length} sub-issues for ${ticketId}`);
 	}
 
-	const memory = getMemory(AGENT_NAME);
-	const processed = memory.processedTickets || [];
-	processed.push(ticketId);
-	setMemory(AGENT_NAME, { processedTickets: processed });
+	// Save to SQLite instead of JSON memory
+	saveTicketBreakdown(ticketId, ticket.title, analysis.summary, JSON.stringify(analysis), comment);
 
 	console.log(`[${AGENT_NAME}] ✅ Done with ${ticketId}`);
 	return analysis;
 }
 
-async function processAllActive() {
+export async function processAllActive() {
 	console.log(`[${AGENT_NAME}] Scanning all active tickets...`);
 	const issues = await getMyIssues(AGENT_NAME);
-	const memory = getMemory(AGENT_NAME);
-	const processed = memory.processedTickets || [];
 
-	const unprocessed = issues.filter((i) => !processed.includes(i.id));
+	const unprocessed = issues.filter((i) => !isTicketProcessed(i.id));
 	console.log(`[${AGENT_NAME}] Found ${unprocessed.length} unprocessed tickets`);
 
-	await sendDM(AGENT_NAME, `🎟️ *Lenny here!* Found *${unprocessed.length}* unprocessed tickets. Starting breakdown now...`);
+	if (getSetting('slack_enabled') === 'true') {
+		await sendDM(AGENT_NAME, `🎟️ *Lenny here!* Found *${unprocessed.length}* unprocessed tickets. Starting breakdown now...`);
+	}
 
 	for (const issue of unprocessed) {
 		await processTicket(issue.id);
-		// Small delay to avoid rate limiting
 		await new Promise((r) => setTimeout(r, 1500));
 	}
 
-	await sendDM(AGENT_NAME, `✅ *Lenny done!* Processed *${unprocessed.length}* tickets. Check your Linear for comments and sub-issues!`);
+	if (getSetting('slack_enabled') === 'true') {
+		await sendDM(AGENT_NAME, `✅ *Lenny done!* Processed *${unprocessed.length}* tickets. Check your Linear for comments and sub-issues!`);
+	}
+
+	return { processed: unprocessed.length };
 }
 
-async function pollForNewTickets() {
+export async function pollForNewTickets() {
 	console.log(`[${AGENT_NAME}] Polling for newly assigned tickets...`);
-	const { getMyRecentlyAssigned } = await import('../core/linear.js');
 	const recent = await getMyRecentlyAssigned(AGENT_NAME, 30);
-	const memory = getMemory(AGENT_NAME);
-	const processed = memory.processedTickets || [];
 
-	const newTickets = recent.filter((i) => !processed.includes(i.id));
+	const newTickets = recent.filter((i) => !isTicketProcessed(i.id));
 
 	if (newTickets.length === 0) {
 		console.log(`[${AGENT_NAME}] No new tickets found`);
-		return;
+		return { processed: 0 };
 	}
 
-	await sendDM(AGENT_NAME, `🆕 *Lenny here!* Found *${newTickets.length}* newly assigned ticket(s). Breaking them down now...`);
+	if (getSetting('slack_enabled') === 'true') {
+		await sendDM(AGENT_NAME, `🆕 *Lenny here!* Found *${newTickets.length}* newly assigned ticket(s). Breaking them down now...`);
+	}
 
 	for (const issue of newTickets) {
 		await processTicket(issue.id);
 		await new Promise((r) => setTimeout(r, 1500));
 	}
+
+	return { processed: newTickets.length };
 }
 
-export default function lenny() {
-	// Poll for newly assigned tickets every 30 minutes
-	registerAgent({
-		name: AGENT_NAME,
-		schedule: '*/30 * * * *',
-		handler: pollForNewTickets,
-	});
-
-	// Process all active unprocessed tickets on startup
-	console.log(`[${AGENT_NAME}] Running initial scan on startup...`);
-	processAllActive();
-}
+// Register with the agent registry for dynamic UI rendering
+registerAgent({
+	name: AGENT_NAME,
+	description: 'Ticket Drafter — analyzes Linear tickets and adds step-by-step breakdowns',
+	actions: [
+		{ key: 'process_all', label: 'Process All Active', handler: processAllActive },
+		{ key: 'poll', label: 'Poll for New Tickets', handler: pollForNewTickets },
+	],
+	schedules: [
+		{ key: 'poll', label: 'Every 30 minutes', cron: '*/30 * * * *' },
+	],
+});

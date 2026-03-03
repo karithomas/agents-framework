@@ -1,25 +1,41 @@
 {
 	"name": "agents-framework",
-	"version": "1.0.0",
-	"main": "index.js",
+	"version": "2.0.0",
+	"main": ".vite/build/main.js",
 	"type": "module",
 	"scripts": {
-		"start": "node index.js",
-		"dev": "nodemon index.js",
-		"test": "echo \"Error: no test specified\" && exit 1"
+		"start": "electron-forge start",
+		"dev": "electron-forge start",
+		"build": "electron-forge make",
+		"serve": "npm rebuild better-sqlite3 --silent && node server/server.js",
+		"predev": "cd node_modules/better-sqlite3 && npx node-gyp rebuild --runtime=electron --target=$(npx electron --version | sed 's/v//') --arch=arm64 --dist-url=https://electronjs.org/headers",
+		"scotty": "node scripts/run-scotty.js",
+		"scotty:daily": "node scripts/run-scotty.js daily",
+		"lenny": "node scripts/run-lenny.js",
+		"launchd:install": "node scripts/launchd.js install",
+		"launchd:uninstall": "node scripts/launchd.js uninstall"
 	},
 	"keywords": [],
 	"author": "",
 	"license": "ISC",
-	"description": "",
+	"description": "Local-first AI agents dashboard powered by Claude Code",
 	"dependencies": {
-		"@anthropic-ai/sdk": "^0.76.0",
 		"@linear/sdk": "^75.0.0",
 		"@slack/web-api": "^7.14.1",
+		"better-sqlite3": "^12.0.0",
 		"dotenv": "^17.3.1",
-		"node-cron": "^4.2.1"
+		"express": "^5.1.0",
+		"vue": "^3.5.0",
+		"vue-router": "^4.5.0"
 	},
 	"devDependencies": {
-		"nodemon": "^3.1.11"
+		"@electron-forge/cli": "^7.0.0",
+		"@electron-forge/maker-dmg": "^7.0.0",
+		"@electron-forge/plugin-auto-unpack-natives": "^7.0.0",
+		"@electron-forge/plugin-vite": "^7.0.0",
+		"@vitejs/plugin-vue": "^5.0.0",
+		"electron": "^33.0.0",
+		"sass": "~1.77.0",
+		"vite": "^5.3.0"
 	}
 }

@@ -1,8 +1,8 @@
-import { registerAgent } from '../core/scheduler.js';
+import { registerAgent } from '../core/agent-registry.js';
 import { askClaude } from '../core/claude.js';
 import { sendDM } from '../core/slack.js';
 import { getMyIssues } from '../core/linear.js';
-import { getMemory, setMemory } from '../core/memory.js';
+import { saveWeeklyPlan, getLatestWeeklyPlan, saveDailyDigest, getSetting } from '../src/main/db.js';
 
 const AGENT_NAME = 'Scotty';
 
@@ -31,23 +31,24 @@ ${issueText}`,
 		maxTokens: 1024,
 	});
 
-	// Save the weekly list to memory
-	setMemory(AGENT_NAME, {
-		weeklyList: message,
-		weekStart: new Date().toISOString(),
-		issues,
-	});
+	saveWeeklyPlan(new Date().toISOString(), message, JSON.stringify(issues));
 
-	await sendDM(AGENT_NAME, `*🗓 Good morning! Here's your week ahead:*\n\n${message}`);
+	if (getSetting('slack_enabled') === 'true') {
+		await sendDM(AGENT_NAME, `*🗓 Good morning! Here's your week ahead:*\n\n${message}`);
+	}
+
+	return message;
 }
 
 export async function sendDailyDigest() {
 	console.log(`[${AGENT_NAME}] Sending daily digest...`);
 
-	const memory = getMemory(AGENT_NAME);
+	const plan = getLatestWeeklyPlan();
 
-	if (!memory.weeklyList) {
-		await sendDM(AGENT_NAME, `⚠️ Scotty here — I don't have a weekly list saved yet. I'll generate one now!`);
+	if (!plan) {
+		if (getSetting('slack_enabled') === 'true') {
+			await sendDM(AGENT_NAME, `⚠️ Scotty here — I don't have a weekly list saved yet. I'll generate one now!`);
+		}
 		await buildWeeklyList();
 		return;
 	}
@@ -61,26 +62,29 @@ export async function sendDailyDigest() {
 Keep it to 3-5 tasks max. Be concise and motivating!
 
 Weekly Plan:
-${memory.weeklyList}`,
+${plan.plan_text}`,
 		maxTokens: 512,
 	});
 
-	await sendDM(AGENT_NAME, `*☀️ Good morning! Here's your focus for ${today}:*\n\n${message}`);
+	saveDailyDigest(new Date().toISOString(), message);
+
+	if (getSetting('slack_enabled') === 'true') {
+		await sendDM(AGENT_NAME, `*☀️ Good morning! Here's your focus for ${today}:*\n\n${message}`);
+	}
+
+	return message;
 }
 
-export default function scotty() {
-	// Every Monday at 8:00 AM
-	registerAgent({
-		name: AGENT_NAME,
-		schedule: '0 8 * * 1',
-		handler: buildWeeklyList,
-	});
-
-	// Tuesday-Friday at 8:00 AM
-	registerAgent({
-		name: AGENT_NAME,
-		schedule: '0 8 * * 2-5',
-		handler: sendDailyDigest,
-	});
-}
-
+// Register with the agent registry for dynamic UI rendering
+registerAgent({
+	name: AGENT_NAME,
+	description: 'Weekly Planner — builds weekly ToDo lists and daily digests from Linear tickets',
+	actions: [
+		{ key: 'weekly', label: 'Build Weekly Plan', handler: buildWeeklyList },
+		{ key: 'daily', label: 'Send Daily Digest', handler: sendDailyDigest },
+	],
+	schedules: [
+		{ key: 'weekly', label: 'Monday 8am', cron: '0 8 * * 1' },
+		{ key: 'daily', label: 'Tue–Fri 8am', cron: '0 8 * * 2-5' },
+	],
+});

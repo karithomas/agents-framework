@@ -1,0 +1,339 @@
+<template>
+	<div class="settings-page">
+		<h1>Settings</h1>
+
+		<!-- Agent Management (dynamic from registry) -->
+		<section class="settings-page__section">
+			<h2>Agents</h2>
+			<div v-for="agent in agents" :key="agent.name" class="settings-page__agent-row">
+				<div class="settings-page__agent-info">
+					<strong>{{ agent.name }}</strong>
+					<span>{{ agent.description }}</span>
+				</div>
+				<label class="settings-page__toggle">
+					<input
+						type="checkbox"
+						:checked="agentEnabledMap[agent.name]"
+						@change="toggleAgent(agent.name, $event.target.checked)"
+					/>
+					<span>{{ agentEnabledMap[agent.name] ? 'Enabled' : 'Disabled' }}</span>
+				</label>
+				<div v-if="agent.schedules.length" class="settings-page__schedules">
+					<span v-for="s in agent.schedules" :key="s.key" class="settings-page__schedule-badge">
+						{{ s.label }}
+					</span>
+				</div>
+			</div>
+		</section>
+
+		<!-- launchd Schedules -->
+		<section class="settings-page__section">
+			<h2>Schedules (launchd)</h2>
+			<div v-if="schedules.length" class="settings-page__schedule-list">
+				<div v-for="s in schedules" :key="s.label" class="settings-page__schedule-row">
+					<span :class="`settings-page__dot settings-page__dot--${s.loaded ? 'green' : s.installed ? 'yellow' : 'grey'}`" />
+					<span class="settings-page__schedule-label">{{ s.label }}</span>
+					<span class="settings-page__schedule-status">
+						{{ s.loaded ? 'Active' : s.installed ? 'Installed' : 'Not installed' }}
+					</span>
+				</div>
+			</div>
+			<div class="settings-page__schedule-actions">
+				<button class="settings-page__btn" @click="handleInstallSchedules">Install Schedules</button>
+				<button class="settings-page__btn settings-page__btn--danger" @click="handleUninstallSchedules">Uninstall Schedules</button>
+			</div>
+		</section>
+
+		<!-- Credentials -->
+		<section class="settings-page__section">
+			<h2>Credentials</h2>
+
+			<h3>Linear</h3>
+			<label class="settings-page__field">
+				<span>API Key</span>
+				<input
+					v-model="creds.linearApiKey"
+					type="password"
+					class="settings-page__input"
+					@blur="saveSetting('linear_api_key', creds.linearApiKey)"
+				/>
+			</label>
+			<label class="settings-page__field">
+				<span>User ID</span>
+				<input
+					v-model="creds.linearUserId"
+					type="text"
+					class="settings-page__input"
+					@blur="saveSetting('linear_user_id', creds.linearUserId)"
+				/>
+			</label>
+
+			<h3>Slack</h3>
+			<label class="settings-page__toggle">
+				<input
+					type="checkbox"
+					:checked="slackEnabled"
+					@change="toggleSlack($event.target.checked)"
+				/>
+				<span>Enable Slack notifications</span>
+			</label>
+			<template v-if="slackEnabled">
+				<label class="settings-page__field">
+					<span>Bot Token</span>
+					<input
+						v-model="creds.slackBotToken"
+						type="password"
+						class="settings-page__input"
+						@blur="saveSetting('slack_bot_token', creds.slackBotToken)"
+					/>
+				</label>
+				<label class="settings-page__field">
+					<span>Signing Secret</span>
+					<input
+						v-model="creds.slackSigningSecret"
+						type="password"
+						class="settings-page__input"
+						@blur="saveSetting('slack_signing_secret', creds.slackSigningSecret)"
+					/>
+				</label>
+				<label class="settings-page__field">
+					<span>User ID</span>
+					<input
+						v-model="creds.slackUserId"
+						type="text"
+						class="settings-page__input"
+						@blur="saveSetting('slack_user_id', creds.slackUserId)"
+					/>
+				</label>
+			</template>
+		</section>
+
+		<div v-if="alert" class="settings-page__alert" :class="`settings-page__alert--${alert.type}`">
+			{{ alert.message }}
+		</div>
+	</div>
+</template>
+
+<script setup>
+import { ref, reactive, onMounted } from 'vue';
+import {
+	getAgents,
+	isAgentEnabled,
+	setAgentEnabled,
+	getSetting,
+	setSetting,
+	getScheduleStatus,
+	installSchedules,
+	uninstallSchedules,
+} from '../api.js';
+
+const agents = ref([]);
+const agentEnabledMap = reactive({});
+const schedules = ref([]);
+const slackEnabled = ref(false);
+const alert = ref(null);
+
+const creds = reactive({
+	linearApiKey: '',
+	linearUserId: '',
+	slackBotToken: '',
+	slackSigningSecret: '',
+	slackUserId: '',
+});
+
+onMounted(async () => {
+	agents.value = await getAgents();
+
+	for (const agent of agents.value) {
+		agentEnabledMap[agent.name] = await isAgentEnabled(agent.name);
+	}
+
+	schedules.value = await getScheduleStatus();
+	slackEnabled.value = (await getSetting('slack_enabled')) === 'true';
+
+	creds.linearApiKey = (await getSetting('linear_api_key')) || '';
+	creds.linearUserId = (await getSetting('linear_user_id')) || '';
+	creds.slackBotToken = (await getSetting('slack_bot_token')) || '';
+	creds.slackSigningSecret = (await getSetting('slack_signing_secret')) || '';
+	creds.slackUserId = (await getSetting('slack_user_id')) || '';
+});
+
+async function toggleAgent(name, enabled) {
+	await setAgentEnabled(name, enabled);
+	agentEnabledMap[name] = enabled;
+}
+
+async function toggleSlack(enabled) {
+	slackEnabled.value = enabled;
+	await setSetting('slack_enabled', enabled ? 'true' : 'false');
+}
+
+async function saveSetting(key, value) {
+	await setSetting(key, value);
+}
+
+async function handleInstallSchedules() {
+	alert.value = null;
+	try {
+		const result = await installSchedules();
+		if (result.status === 'success') {
+			alert.value = { type: 'success', message: 'Schedules installed' };
+			schedules.value = await getScheduleStatus();
+		} else {
+			alert.value = { type: 'error', message: result.error };
+		}
+	} catch (e) {
+		alert.value = { type: 'error', message: e.message };
+	}
+}
+
+async function handleUninstallSchedules() {
+	alert.value = null;
+	try {
+		const result = await uninstallSchedules();
+		if (result.status === 'success') {
+			alert.value = { type: 'success', message: 'Schedules uninstalled' };
+			schedules.value = await getScheduleStatus();
+		} else {
+			alert.value = { type: 'error', message: result.error };
+		}
+	} catch (e) {
+		alert.value = { type: 'error', message: e.message };
+	}
+}
+</script>
+
+<style lang="scss" scoped>
+.settings-page {
+	h1 { margin: 0 0 1.5rem; }
+	h2 { font-size: 1.1rem; margin: 0 0 1rem; }
+	h3 { font-size: 0.95rem; margin: 1.25rem 0 0.75rem; opacity: 0.9; }
+
+	&__section {
+		margin-bottom: 2.5rem;
+	}
+
+	&__agent-row {
+		display: flex;
+		align-items: center;
+		gap: 1rem;
+		padding: 0.75rem 0;
+		border-bottom: 1px solid var(--color-border, #2a2a4a);
+	}
+
+	&__agent-info {
+		flex: 1;
+		display: flex;
+		flex-direction: column;
+		gap: 0.15rem;
+
+		span { font-size: 0.8rem; opacity: 0.7; }
+	}
+
+	&__toggle {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		cursor: pointer;
+		font-size: 0.85rem;
+	}
+
+	&__schedules {
+		display: flex;
+		gap: 0.4rem;
+	}
+
+	&__schedule-badge {
+		font-size: 0.75rem;
+		padding: 0.15rem 0.5rem;
+		border-radius: 4px;
+		background: var(--color-card-bg, #1e1e3a);
+		opacity: 0.7;
+	}
+
+	&__schedule-list {
+		margin-bottom: 1rem;
+	}
+
+	&__schedule-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.4rem 0;
+		font-size: 0.85rem;
+	}
+
+	&__dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+
+		&--green { background: #34d399; }
+		&--yellow { background: #fbbf24; }
+		&--grey { background: #6b7280; }
+	}
+
+	&__schedule-label {
+		flex: 1;
+		font-family: monospace;
+		font-size: 0.8rem;
+	}
+
+	&__schedule-status {
+		opacity: 0.6;
+		font-size: 0.8rem;
+	}
+
+	&__schedule-actions {
+		display: flex;
+		gap: 0.75rem;
+	}
+
+	&__field {
+		display: flex;
+		flex-direction: column;
+		gap: 0.25rem;
+		margin-bottom: 0.75rem;
+
+		span { font-size: 0.8rem; opacity: 0.7; }
+	}
+
+	&__input {
+		padding: 0.5rem 0.75rem;
+		border: 1px solid var(--color-border, #3a3a5a);
+		border-radius: 6px;
+		background: var(--color-input-bg, #16162e);
+		color: inherit;
+		font-size: 0.85rem;
+		max-width: 400px;
+
+		&:focus {
+			outline: none;
+			border-color: var(--color-primary, #6366f1);
+		}
+	}
+
+	&__btn {
+		padding: 0.5rem 1rem;
+		border: 1px solid var(--color-border, #3a3a5a);
+		border-radius: 6px;
+		background: transparent;
+		color: inherit;
+		cursor: pointer;
+		font-size: 0.85rem;
+
+		&:hover { background: rgba(255, 255, 255, 0.05); }
+		&--danger { border-color: #ef4444; color: #fca5a5; }
+		&--danger:hover { background: rgba(239, 68, 68, 0.1); }
+	}
+
+	&__alert {
+		padding: 0.75rem 1rem;
+		border-radius: 6px;
+		font-size: 0.85rem;
+
+		&--success { background: #065f46; color: #6ee7b7; }
+		&--error { background: #7f1d1d; color: #fca5a5; }
+	}
+}
+</style>

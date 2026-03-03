@@ -1,16 +1,33 @@
 import { WebClient } from '@slack/web-api';
 import 'dotenv/config';
+import { getSetting } from '../src/main/db.js';
 
-const client = new WebClient(process.env.SLACK_BOT_TOKEN);
-const YOUR_USER_ID = process.env.SLACK_YOUR_USER_ID;
+let client;
+let userId;
+
+function getClient() {
+	if (!client) {
+		const token = getSetting('slack_bot_token') || process.env.SLACK_BOT_TOKEN;
+		if (!token) throw new Error('Slack Bot Token not configured. Complete onboarding or set SLACK_BOT_TOKEN in .env');
+		client = new WebClient(token);
+	}
+	return client;
+}
+
+function getUserId() {
+	if (!userId) {
+		userId = getSetting('slack_user_id') || process.env.SLACK_YOUR_USER_ID;
+	}
+	return userId;
+}
 
 export async function sendDM(agentName, message) {
 	try {
-		console.log(`[${agentName}] Attempting to send DM to user ID: ${YOUR_USER_ID}`);
-		console.log(`[${agentName}] Bot token starts with: ${process.env.SLACK_BOT_TOKEN?.substring(0, 15)}...`);
+		const uid = getUserId();
+		console.log(`[${agentName}] Attempting to send DM to user ID: ${uid}`);
 
-		const result = await client.chat.postMessage({
-			channel: YOUR_USER_ID,
+		const result = await getClient().chat.postMessage({
+			channel: uid,
 			text: message,
 		});
 
@@ -24,9 +41,9 @@ export async function sendDM(agentName, message) {
 
 export async function sendToChannel(agentName, channelId, message) {
 	try {
-		await client.chat.postMessage({
-	 channel: channelId,
-	 text: message,
+		await getClient().chat.postMessage({
+			channel: channelId,
+			text: message,
 		});
 		console.log(`[${agentName}] Slack channel message sent successfully`);
 	} catch (error) {
@@ -37,9 +54,9 @@ export async function sendToChannel(agentName, channelId, message) {
 
 export async function getChannelHistory(agentName, channelId, limit = 50) {
 	try {
-		const result = await client.conversations.history({
-	 channel: channelId,
-	 limit,
+		const result = await getClient().conversations.history({
+			channel: channelId,
+			limit,
 		});
 		console.log(`[${agentName}] Fetched ${result.messages.length} messages from Slack`);
 		return result.messages;

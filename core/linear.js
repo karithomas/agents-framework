@@ -1,13 +1,21 @@
 import { LinearClient } from '@linear/sdk';
 import 'dotenv/config';
+import { getSetting } from '../src/main/db.js';
 
-const client = new LinearClient({
-	apiKey: process.env.LINEAR_API_KEY,
-});
+let client;
+
+function getClient() {
+	if (!client) {
+		const apiKey = getSetting('linear_api_key') || process.env.LINEAR_API_KEY;
+		if (!apiKey) throw new Error('Linear API key not configured. Complete onboarding or set LINEAR_API_KEY in .env');
+		client = new LinearClient({ apiKey });
+	}
+	return client;
+}
 
 export async function getMyIssues(agentName) {
 	try {
-		const me = await client.viewer;
+		const me = await getClient().viewer;
 		const issues = await me.assignedIssues({
 			filter: {
 				state: {
@@ -37,7 +45,7 @@ export async function getMyIssues(agentName) {
 
 export async function getIssueDetails(agentName, issueId) {
 	try {
-		const issue = await client.issue(issueId);
+		const issue = await getClient().issue(issueId);
 		const state = await issue.state;
 		const comments = await issue.comments();
 		const children = await issue.children();
@@ -63,8 +71,8 @@ export async function getIssueDetails(agentName, issueId) {
 
 export async function addComment(agentName, issueId, body) {
 	try {
-		const issue = await client.issue(issueId);
-		await client.createComment({
+		const issue = await getClient().issue(issueId);
+		await getClient().createComment({
 			issueId: issue.id,
 			body,
 		});
@@ -77,7 +85,7 @@ export async function addComment(agentName, issueId, body) {
 
 export async function createChildIssue(agentName, { title, description, parentId, teamId }) {
 	try {
-		const issue = await client.createIssue({
+		const issue = await getClient().createIssue({
 			title,
 			description,
 			parentId,
@@ -93,7 +101,7 @@ export async function createChildIssue(agentName, { title, description, parentId
 
 export async function createIssue(agentName, { title, description, teamId, priority }) {
 	try {
-		const issue = await client.createIssue({
+		const issue = await getClient().createIssue({
 			title,
 			description,
 			teamId,
@@ -109,7 +117,7 @@ export async function createIssue(agentName, { title, description, teamId, prior
 
 export async function getTeams(agentName) {
 	try {
-		const teams = await client.teams();
+		const teams = await getClient().teams();
 		const formatted = teams.nodes.map((team) => ({
 			id: team.id,
 			name: team.name,
@@ -125,7 +133,7 @@ export async function getTeams(agentName) {
 
 export async function getMyRecentlyAssigned(agentName, sinceMinutes = 30) {
 	try {
-		const me = await client.viewer;
+		const me = await getClient().viewer;
 		const issues = await me.assignedIssues({
 			filter: {
 				updatedAt: { gte: new Date(Date.now() - sinceMinutes * 60 * 1000).toISOString() },
@@ -155,7 +163,7 @@ export async function getMyRecentlyAssigned(agentName, sinceMinutes = 30) {
 
 export async function getTeamStates(agentName, teamId) {
 	try {
-		const team = await client.team(teamId);
+		const team = await getClient().team(teamId);
 		const states = await team.states();
 		states.nodes.forEach((s) => {
 			console.log(`[${agentName}] State: ${s.name} | ID: ${s.id}`);

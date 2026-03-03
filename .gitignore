@@ -1,6 +1,12 @@
 node_modules/
 .env
 data/memory.json
+data/agents.db
+data/agents.db-wal
+data/agents.db-shm
+data/logs/
 
 .idea
 .DS_Store
+out/
+.vite/
