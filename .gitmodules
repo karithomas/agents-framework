@@ -1,0 +1,3 @@
+[submodule "src/components/universal-resources"]
+	path = src/components/universal-resources
+	url = git@github.com:fantasypros/universal-resources.git
