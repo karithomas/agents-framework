@@ -11,7 +11,7 @@ You help build structured weekly ToDo lists every Monday based on Linear tickets
 Keep your tone warm, concise, and motivating. Format your responses clearly using emojis to make them easy to read in Slack.
 Always prioritize tasks by urgency and importance. You are aware the engineer works across two teams: ProdDev and CoreFP.`;
 
-async function buildWeeklyList() {
+export async function buildWeeklyList() {
 	console.log(`[${AGENT_NAME}] Building weekly ToDo list...`);
 
 	const issues = await getMyIssues(AGENT_NAME);
@@ -41,7 +41,7 @@ ${issueText}`,
 	await sendDM(AGENT_NAME, `*🗓 Good morning! Here's your week ahead:*\n\n${message}`);
 }
 
-async function sendDailyDigest() {
+export async function sendDailyDigest() {
 	console.log(`[${AGENT_NAME}] Sending daily digest...`);
 
 	const memory = getMemory(AGENT_NAME);
