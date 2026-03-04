@@ -28,16 +28,20 @@
 
 		<!-- Today's Focus -->
 		<section v-if="dailyDigest" class="scotty-page__digest">
-			<h2>Today's Focus</h2>
-			<p class="scotty-page__meta">{{ formatDate(dailyDigest.digest_date) }}</p>
-			<div class="scotty-page__plan-text">{{ dailyDigest.digest_text }}</div>
+			<div class="scotty-page__section-header">
+				<h2>Today's Focus</h2>
+				<span class="scotty-page__meta">{{ formatDate(dailyDigest.digest_date) }}</span>
+			</div>
+			<div class="scotty-page__plan-text scotty-page__plan-text--digest" v-html="renderedDigest" />
 		</section>
 
 		<!-- Current plan -->
 		<section v-if="currentPlan" class="scotty-page__plan">
-			<h2>Current Weekly Plan</h2>
-			<p class="scotty-page__meta">Week of {{ formatDate(currentPlan.week_start) }}</p>
-			<div class="scotty-page__plan-text">{{ currentPlan.plan_text }}</div>
+			<div class="scotty-page__section-header">
+				<h2>Current Weekly Plan</h2>
+				<span class="scotty-page__meta">Week of {{ formatDate(currentPlan.week_start) }}</span>
+			</div>
+			<div class="scotty-page__plan-text" v-html="renderedPlan" />
 		</section>
 		<p v-else class="scotty-page__empty">
 			No weekly plan yet. Click "Build Weekly Plan" to generate one.
@@ -48,14 +52,15 @@
 			<h2>Past Plans</h2>
 			<details v-for="plan in history.slice(1)" :key="plan.id" class="scotty-page__history-item">
 				<summary>Week of {{ formatDate(plan.week_start) }}</summary>
-				<div class="scotty-page__plan-text">{{ plan.plan_text }}</div>
+				<div class="scotty-page__plan-text" v-html="renderedHistory(plan)" />
 			</details>
 		</section>
 	</div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { marked } from 'marked';
 import { runAgent, getLatestWeeklyPlan, getWeeklyPlanHistory, getLatestDailyDigest } from '../api.js';
 
 const currentPlan = ref(null);
@@ -64,6 +69,10 @@ const history = ref([]);
 const running = ref(false);
 const runType = ref('');
 const alert = ref(null);
+
+const renderedPlan = computed(() => currentPlan.value ? marked.parse(currentPlan.value.plan_text) : '');
+const renderedDigest = computed(() => dailyDigest.value ? marked.parse(dailyDigest.value.digest_text) : '');
+function renderedHistory(plan) { return marked.parse(plan.plan_text); }
 
 onMounted(async () => {
 	currentPlan.value = await getLatestWeeklyPlan();
@@ -171,20 +180,72 @@ function formatDate(iso) {
 		}
 	}
 
+	&__section-header {
+		display: flex;
+		align-items: baseline;
+		gap: 0.75rem;
+		margin-bottom: 0.75rem;
+
+		h2 { margin: 0; }
+	}
+
 	&__meta {
 		font-size: 0.8rem;
-		opacity: 0.6;
-		margin: 0 0 1rem;
+		opacity: 0.5;
 	}
 
 	&__plan-text {
 		background: var(--color-card-bg, #1e1e3a);
 		border: 1px solid var(--color-border, #2a2a4a);
 		border-radius: 8px;
-		padding: 1.25rem;
-		white-space: pre-wrap;
+		padding: 1.5rem 1.75rem;
 		font-size: 0.9rem;
-		line-height: 1.6;
+		line-height: 1.7;
+
+		&--digest {
+			border-left: 3px solid var(--color-primary, #6366f1);
+		}
+
+		:deep(h1), :deep(h2), :deep(h3) {
+			margin: 1.25rem 0 0.4rem;
+			font-size: 1rem;
+			font-weight: 600;
+			color: #a5b4fc;
+
+			&:first-child { margin-top: 0; }
+		}
+
+		:deep(h1) { font-size: 1.1rem; }
+
+		:deep(ul), :deep(ol) {
+			margin: 0.4rem 0 0.75rem;
+			padding-left: 1.4rem;
+
+			li {
+				margin-bottom: 0.3rem;
+			}
+		}
+
+		:deep(p) {
+			margin: 0 0 0.75rem;
+
+			&:last-child { margin-bottom: 0; }
+		}
+
+		:deep(strong) { color: #e2e8f0; }
+
+		:deep(hr) {
+			border: none;
+			border-top: 1px solid var(--color-border, #2a2a4a);
+			margin: 1rem 0;
+		}
+
+		:deep(code) {
+			background: rgba(99, 102, 241, 0.15);
+			border-radius: 3px;
+			padding: 0.1em 0.35em;
+			font-size: 0.85em;
+		}
 	}
 
 	&__empty {
@@ -201,15 +262,39 @@ function formatDate(iso) {
 	}
 
 	&__history-item {
-		margin-bottom: 0.75rem;
+		border: 1px solid var(--color-border, #2a2a4a);
+		border-radius: 8px;
+		margin-bottom: 0.5rem;
+		overflow: hidden;
 
 		summary {
 			cursor: pointer;
-			padding: 0.5rem 0;
+			padding: 0.75rem 1rem;
 			font-size: 0.9rem;
-			opacity: 0.8;
+			opacity: 0.7;
+			list-style: none;
+			display: flex;
+			align-items: center;
+			gap: 0.5rem;
+
+			&::before {
+				content: '›';
+				transition: transform 0.15s;
+			}
 
 			&:hover { opacity: 1; }
+		}
+
+		&[open] summary {
+			border-bottom: 1px solid var(--color-border, #2a2a4a);
+			opacity: 1;
+
+			&::before { transform: rotate(90deg); }
+		}
+
+		.scotty-page__plan-text {
+			border: none;
+			border-radius: 0;
 		}
 	}
 }
