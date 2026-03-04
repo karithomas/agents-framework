@@ -78,6 +78,14 @@ export async function processTicket(ticketId) {
 	});
 }
 
+export async function setTicketCompleted(ticketId, completed) {
+	if (isElectron) return window.agentsAPI.setTicketCompleted(ticketId, completed);
+	return fetchJson(`/api/lenny/breakdowns/${ticketId}/completed`, {
+		method: 'PUT',
+		body: JSON.stringify({ completed }),
+	});
+}
+
 // --- Settings ---
 
 export async function getSetting(key) {

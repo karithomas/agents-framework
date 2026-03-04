@@ -2,6 +2,16 @@
 	<div class="lenny-page">
 		<h1>Lenny — Ticket Drafter</h1>
 
+		<!-- Options -->
+		<label class="lenny-page__toggle">
+			<input
+				type="checkbox"
+				:checked="postToLinear"
+				@change="togglePostToLinear"
+			/>
+			<span>Post breakdowns as comments on Linear tickets</span>
+		</label>
+
 		<!-- On-demand buttons -->
 		<div class="lenny-page__actions">
 			<button
@@ -12,6 +22,8 @@
 				<span v-if="running && runType === 'all'" class="lenny-page__spinner" />
 				Process All Active
 			</button>
+		</div>
+		<div class="lenny-page__actions">
 			<div class="lenny-page__ticket-input">
 				<input
 					v-model="ticketId"
@@ -26,7 +38,7 @@
 					@click="handleProcessTicket"
 				>
 					<span v-if="running && runType === 'ticket'" class="lenny-page__spinner" />
-					Process Ticket
+					Process Single Ticket
 				</button>
 			</div>
 		</div>
@@ -39,15 +51,40 @@
 		<section class="lenny-page__breakdowns">
 			<h2>Ticket Breakdowns</h2>
 			<div v-if="breakdowns.length">
-				<details v-for="bd in breakdowns" :key="bd.id" class="lenny-page__breakdown">
-					<summary>
+				<details
+					v-for="bd in breakdowns"
+					:key="bd.id"
+					:open="expandedId === bd.ticket_id"
+					class="lenny-page__breakdown"
+					:class="{ 'lenny-page__breakdown--completed': bd.completed }"
+					@toggle="onToggle($event, bd.ticket_id)"
+				>
+					<summary class="lenny-page__summary-row">
+						<label
+							class="lenny-page__checkbox"
+							@click.stop
+						>
+							<input
+								type="checkbox"
+								:checked="!!bd.completed"
+								@change="toggleCompleted(bd)"
+							/>
+						</label>
 						<span class="lenny-page__ticket-id">{{ bd.ticket_id }}</span>
 						<span class="lenny-page__ticket-title">{{ bd.ticket_title }}</span>
 						<span class="lenny-page__ticket-date">{{ formatDate(bd.created_at) }}</span>
 					</summary>
 					<div class="lenny-page__breakdown-body">
-						<p v-if="bd.summary" class="lenny-page__summary">{{ bd.summary }}</p>
-						<pre v-if="bd.comment_md" class="lenny-page__comment">{{ bd.comment_md }}</pre>
+						<p class="lenny-page__ticket-summary">{{ bd.summary }}</p>
+						<a
+							:href="linearTicketUrl(bd.ticket_id)"
+							target="_blank"
+							rel="noopener"
+							class="lenny-page__linear-link"
+						>
+							View in Linear
+						</a>
+						<div v-if="bd.comment_md" class="lenny-page__comment" v-html="renderMarkdown(bd.comment_md)" />
 					</div>
 				</details>
 			</div>
@@ -60,17 +97,68 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { runAgent, getTicketBreakdowns, processTicket } from '../api.js';
+import { runAgent, getTicketBreakdowns, processTicket, setTicketCompleted, getSetting, setSetting } from '../api.js';
 
 const breakdowns = ref([]);
 const ticketId = ref('');
 const running = ref(false);
 const runType = ref('');
 const alert = ref(null);
+const expandedId = ref(null);
+const postToLinear = ref(false);
 
 onMounted(async () => {
-	breakdowns.value = await getTicketBreakdowns(20);
+	breakdowns.value = await getTicketBreakdowns(50);
+	postToLinear.value = (await getSetting('lenny_post_to_linear')) === 'true';
 });
+
+async function togglePostToLinear() {
+	postToLinear.value = !postToLinear.value;
+	await setSetting('lenny_post_to_linear', postToLinear.value ? 'true' : 'false');
+}
+
+function onToggle(event, id) {
+	if (event.target.open) {
+		expandedId.value = id;
+		// Close all other details elements
+		for (const bd of breakdowns.value) {
+			if (bd.ticket_id !== id) {
+				const el = event.target.parentElement?.querySelector(
+					`details[data-id="${bd.ticket_id}"]`
+				);
+				if (el) el.open = false;
+			}
+		}
+	} else if (expandedId.value === id) {
+		expandedId.value = null;
+	}
+}
+
+async function toggleCompleted(bd) {
+	const newVal = !bd.completed;
+	bd.completed = newVal ? 1 : 0;
+	await setTicketCompleted(bd.ticket_id, newVal);
+}
+
+function linearTicketUrl(ticketId) {
+	const [team, num] = ticketId.split('-');
+	return `https://linear.app/issue/${ticketId}`;
+}
+
+function renderMarkdown(md) {
+	// Lightweight markdown rendering for the breakdown comment
+	return md
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/^## (.+)$/gm, '<h3>$1</h3>')
+		.replace(/^### (\d+\. .+)$/gm, '<h4>$1</h4>')
+		.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+		.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+		.replace(/^- \[ \] (.+)$/gm, '<div class="lenny-page__checklist-item">$1</div>')
+		.replace(/^---$/gm, '<hr />')
+		.replace(/\n\n/g, '<br />');
+}
 
 async function handleProcessAll() {
 	running.value = true;
@@ -81,7 +169,7 @@ async function handleProcessAll() {
 		const result = await runAgent('Lenny', 'process_all');
 		if (result.status === 'success') {
 			alert.value = { type: 'success', message: 'Lenny finished processing all active tickets' };
-			breakdowns.value = await getTicketBreakdowns(20);
+			breakdowns.value = await getTicketBreakdowns(50);
 		} else {
 			alert.value = { type: 'error', message: result.error };
 		}
@@ -104,7 +192,7 @@ async function handleProcessTicket() {
 		const result = await processTicket(ticketId.value);
 		if (result.status === 'success') {
 			alert.value = { type: 'success', message: `Processed ${ticketId.value}` };
-			breakdowns.value = await getTicketBreakdowns(20);
+			breakdowns.value = await getTicketBreakdowns(50);
 			ticketId.value = '';
 		} else {
 			alert.value = { type: 'error', message: result.error };
@@ -129,12 +217,27 @@ function formatDate(iso) {
 		margin: 0 0 1.5rem;
 	}
 
+	&__toggle {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		margin-bottom: 1.25rem;
+		font-size: 0.85rem;
+		cursor: pointer;
+		opacity: 0.85;
+
+		input[type="checkbox"] {
+			cursor: pointer;
+			accent-color: var(--color-primary, #6366f1);
+		}
+	}
+
 	&__actions {
 		display: flex;
 		gap: 0.75rem;
 		align-items: center;
 		flex-wrap: wrap;
-		margin-bottom: 1.5rem;
+		margin-bottom: 0.75rem;
 	}
 
 	&__ticket-input {
@@ -197,6 +300,8 @@ function formatDate(iso) {
 	}
 
 	&__breakdowns {
+		margin-top: 0.75rem;
+
 		h2 {
 			font-size: 1.1rem;
 			margin: 0 0 1rem;
@@ -209,17 +314,53 @@ function formatDate(iso) {
 		border-radius: 6px;
 		overflow: hidden;
 
-		summary {
-			display: flex;
-			gap: 0.75rem;
-			align-items: center;
-			padding: 0.75rem 1rem;
-			cursor: pointer;
-			font-size: 0.85rem;
+		&--completed {
+			opacity: 0.5;
+		}
 
-			&:hover {
-				background: rgba(255, 255, 255, 0.03);
-			}
+		&--completed &-body {
+			opacity: 0.7;
+		}
+	}
+
+	&__summary-row {
+		display: flex;
+		gap: 0.75rem;
+		align-items: center;
+		padding: 0.75rem 1rem;
+		cursor: pointer;
+		font-size: 0.85rem;
+		list-style: none;
+
+		&::-webkit-details-marker {
+			display: none;
+		}
+
+		&::before {
+			content: '▸';
+			font-size: 0.75rem;
+			transition: transform 0.15s ease;
+		}
+
+		details[open] > &::before {
+			transform: rotate(90deg);
+		}
+
+		&:hover {
+			background: rgba(255, 255, 255, 0.03);
+		}
+	}
+
+	&__checkbox {
+		display: flex;
+		align-items: center;
+		cursor: pointer;
+
+		input[type="checkbox"] {
+			width: 16px;
+			height: 16px;
+			cursor: pointer;
+			accent-color: var(--color-primary, #6366f1);
 		}
 	}
 
@@ -239,22 +380,69 @@ function formatDate(iso) {
 	}
 
 	&__breakdown-body {
-		padding: 1rem;
+		padding: 1.25rem;
 		border-top: 1px solid var(--color-border, #2a2a4a);
 		background: var(--color-card-bg, #1e1e3a);
 	}
 
-	&__summary {
-		margin: 0 0 1rem;
+	&__ticket-summary {
+		margin: 0 0 0.75rem;
 		font-size: 0.9rem;
 		opacity: 0.9;
+		line-height: 1.5;
+	}
+
+	&__linear-link {
+		display: inline-block;
+		margin-bottom: 1rem;
+		color: var(--color-primary, #6366f1);
+		font-size: 0.85rem;
+		text-decoration: none;
+
+		&:hover {
+			text-decoration: underline;
+		}
 	}
 
 	&__comment {
-		white-space: pre-wrap;
 		font-size: 0.85rem;
-		line-height: 1.6;
-		margin: 0;
+		line-height: 1.7;
+
+		:deep(h3) {
+			font-size: 1rem;
+			margin: 1.25rem 0 0.5rem;
+
+			&:first-child { margin-top: 0; }
+		}
+
+		:deep(h4) {
+			font-size: 0.9rem;
+			margin: 1rem 0 0.25rem;
+		}
+
+		:deep(blockquote) {
+			border-left: 3px solid var(--color-primary, #6366f1);
+			padding-left: 0.75rem;
+			margin: 0.5rem 0;
+			opacity: 0.85;
+		}
+
+		:deep(hr) {
+			border: none;
+			border-top: 1px solid var(--color-border, #2a2a4a);
+			margin: 1rem 0;
+		}
+
+		:deep(.lenny-page__checklist-item) {
+			padding: 0.2rem 0 0.2rem 1.25rem;
+			position: relative;
+
+			&::before {
+				content: '☐';
+				position: absolute;
+				left: 0;
+			}
+		}
 	}
 
 	&__empty {

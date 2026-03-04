@@ -51,7 +51,7 @@ export async function askClaude({ agentName, systemPrompt, userMessage }) {
 		const child = spawn(binPath, args, {
 			env,
 			stdio: ['pipe', 'pipe', 'pipe'],
-			timeout: 120000,
+			timeout: 300000, // 5 minutes
 		});
 
 		let stdout = '';
@@ -60,7 +60,13 @@ export async function askClaude({ agentName, systemPrompt, userMessage }) {
 		child.stdout.on('data', (data) => { stdout += data; });
 		child.stderr.on('data', (data) => { stderr += data; });
 
-		child.on('close', (code) => {
+		child.on('close', (code, signal) => {
+			if (signal) {
+				const errMsg = `Claude CLI killed by ${signal} (timeout). stderr: ${stderr.trim().slice(0, 500)}`;
+				console.error(`[${agentName}] Claude CLI error:`, errMsg);
+				reject(new Error(errMsg));
+				return;
+			}
 			if (code !== 0) {
 				const errMsg = stderr.trim() || `Claude CLI exited with code ${code}`;
 				console.error(`[${agentName}] Claude CLI error:`, errMsg);

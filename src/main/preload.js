@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld('agentsAPI', {
 	// Lenny
 	getTicketBreakdowns: (limit) => ipcRenderer.invoke('get-ticket-breakdowns', limit),
 	processTicket: (ticketId) => ipcRenderer.invoke('process-ticket', ticketId),
+	setTicketCompleted: (ticketId, completed) => ipcRenderer.invoke('set-ticket-completed', ticketId, completed),
 
 	// Settings
 	getSetting: (key) => ipcRenderer.invoke('get-setting', key),

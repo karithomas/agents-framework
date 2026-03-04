@@ -10,6 +10,7 @@ import {
 	getWeeklyPlanHistory,
 	getLatestDailyDigest,
 	getTicketBreakdowns,
+	setTicketCompleted,
 	getSetting,
 	setSetting,
 	isOnboarded,
@@ -71,6 +72,11 @@ export function registerIpcHandlers() {
 	// --- Lenny ---
 	ipcMain.handle('get-ticket-breakdowns', (_event, limit) => {
 		return getTicketBreakdowns(limit);
+	});
+
+	ipcMain.handle('set-ticket-completed', (_event, ticketId, completed) => {
+		setTicketCompleted(ticketId, completed);
+		return true;
 	});
 
 	ipcMain.handle('process-ticket', async (_event, ticketId) => {

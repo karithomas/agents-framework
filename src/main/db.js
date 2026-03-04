@@ -79,6 +79,7 @@ export function initDatabase(userDataPath) {
 			summary        TEXT,
 			analysis_json  TEXT NOT NULL,
 			comment_md     TEXT,
+			completed      INTEGER NOT NULL DEFAULT 0,
 			created_at     TEXT NOT NULL DEFAULT (datetime('now'))
 		);
 
@@ -109,6 +110,10 @@ export function initDatabase(userDataPath) {
 	seedSetting.run('linear_api_key', '');
 	seedSetting.run('linear_user_id', '');
 	seedSetting.run('onboarding_complete', 'false');
+	seedSetting.run('lenny_post_to_linear', 'false');
+
+	// Migrations — add columns that may not exist in older databases
+	try { db.exec('ALTER TABLE ticket_breakdowns ADD COLUMN completed INTEGER NOT NULL DEFAULT 0'); } catch { /* already exists */ }
 
 	console.log(`[DB] Initialized at ${dbPath}`);
 	return db;
@@ -186,6 +191,13 @@ export function getTicketBreakdowns(limit = 20) {
 		'SELECT * FROM ticket_breakdowns ORDER BY created_at DESC LIMIT ?'
 	);
 	return stmt.all(limit);
+}
+
+export function setTicketCompleted(ticketId, completed) {
+	const stmt = getDb().prepare(
+		'UPDATE ticket_breakdowns SET completed = ? WHERE ticket_id = ?'
+	);
+	stmt.run(completed ? 1 : 0, ticketId);
 }
 
 export function isTicketProcessed(ticketId) {

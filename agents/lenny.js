@@ -109,7 +109,10 @@ export async function processTicket(ticketId) {
 	}
 
 	const comment = buildCommentMarkdown(analysis, ticket);
-	await addComment(AGENT_NAME, ticketId, comment);
+
+	if (getSetting('lenny_post_to_linear') === 'true') {
+		await addComment(AGENT_NAME, ticketId, comment);
+	}
 
 	if (analysis.needsSubIssues && analysis.subIssues.length > 0) {
 		const teams = await getTeams(AGENT_NAME);
