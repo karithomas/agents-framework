@@ -108,6 +108,28 @@
 			</template>
 		</section>
 
+		<!-- Reset -->
+		<section class="settings-page__section">
+			<h2>Reset</h2>
+			<p class="settings-page__reset-desc">Delete all data — credentials, plans, digests, breakdowns, and run history — and return to onboarding.</p>
+			<button
+				v-if="!confirmingReset"
+				class="settings-page__btn settings-page__btn--danger"
+				@click="confirmingReset = true"
+			>
+				Reset All Data
+			</button>
+			<div v-else class="settings-page__reset-confirm">
+				<span>Are you sure? This cannot be undone.</span>
+				<button class="settings-page__btn settings-page__btn--danger" @click="handleReset">
+					Yes, delete everything
+				</button>
+				<button class="settings-page__btn" @click="confirmingReset = false">
+					Cancel
+				</button>
+			</div>
+		</section>
+
 		<div v-if="alert" class="settings-page__alert" :class="`settings-page__alert--${alert.type}`">
 			{{ alert.message }}
 		</div>
@@ -116,6 +138,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import {
 	getAgents,
 	isAgentEnabled,
@@ -125,13 +148,16 @@ import {
 	getScheduleStatus,
 	installSchedules,
 	uninstallSchedules,
+	resetAllData,
 } from '../api.js';
 
+const router = useRouter();
 const agents = ref([]);
 const agentEnabledMap = reactive({});
 const schedules = ref([]);
 const slackEnabled = ref(false);
 const alert = ref(null);
+const confirmingReset = ref(false);
 
 const creds = reactive({
 	linearApiKey: '',
@@ -185,6 +211,11 @@ async function handleInstallSchedules() {
 	} catch (e) {
 		alert.value = { type: 'error', message: e.message };
 	}
+}
+
+async function handleReset() {
+	await resetAllData();
+	router.push('/onboarding');
 }
 
 async function handleUninstallSchedules() {
@@ -325,6 +356,21 @@ async function handleUninstallSchedules() {
 		&:hover { background: rgba(255, 255, 255, 0.05); }
 		&--danger { border-color: #ef4444; color: #fca5a5; }
 		&--danger:hover { background: rgba(239, 68, 68, 0.1); }
+	}
+
+	&__reset-desc {
+		font-size: 0.85rem;
+		opacity: 0.7;
+		margin: 0 0 1rem;
+	}
+
+	&__reset-confirm {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		font-size: 0.85rem;
+
+		span { opacity: 0.9; }
 	}
 
 	&__alert {

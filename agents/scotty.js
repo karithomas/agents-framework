@@ -81,7 +81,7 @@ registerAgent({
 	description: 'Weekly Planner — builds weekly ToDo lists and daily digests from Linear tickets',
 	actions: [
 		{ key: 'weekly', label: 'Build Weekly Plan', handler: buildWeeklyList },
-		{ key: 'daily', label: 'Send Daily Digest', handler: sendDailyDigest },
+		{ key: 'daily', label: 'Generate Daily Focus', handler: sendDailyDigest },
 	],
 	schedules: [
 		{ key: 'weekly', label: 'Monday 8am', cron: '0 8 * * 1' },

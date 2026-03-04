@@ -18,7 +18,7 @@
 				@click="handleRun('daily')"
 			>
 				<span v-if="running && runType === 'daily'" class="scotty-page__spinner" />
-				Send Daily Digest
+				Generate Daily Focus
 			</button>
 		</div>
 
@@ -27,22 +27,30 @@
 		</div>
 
 		<!-- Today's Focus -->
-		<section v-if="dailyDigest" class="scotty-page__digest">
-			<div class="scotty-page__section-header">
-				<h2>Today's Focus</h2>
+		<details
+			v-if="dailyDigest"
+			open
+			class="scotty-page__section scotty-page__section--digest"
+		>
+			<summary class="scotty-page__section-summary">
+				<span class="scotty-page__section-title">Today's Focus</span>
 				<span class="scotty-page__meta">{{ formatDate(dailyDigest.digest_date) }}</span>
-			</div>
+			</summary>
 			<div class="scotty-page__plan-text scotty-page__plan-text--digest" v-html="renderedDigest" />
-		</section>
+		</details>
 
 		<!-- Current plan -->
-		<section v-if="currentPlan" class="scotty-page__plan">
-			<div class="scotty-page__section-header">
-				<h2>Current Weekly Plan</h2>
+		<details
+			v-if="currentPlan"
+			open
+			class="scotty-page__section"
+		>
+			<summary class="scotty-page__section-summary">
+				<span class="scotty-page__section-title">Current Weekly Plan</span>
 				<span class="scotty-page__meta">Week of {{ formatDate(currentPlan.week_start) }}</span>
-			</div>
+			</summary>
 			<div class="scotty-page__plan-text" v-html="renderedPlan" />
-		</section>
+		</details>
 		<p v-else class="scotty-page__empty">
 			No weekly plan yet. Click "Build Weekly Plan" to generate one.
 		</p>
@@ -50,8 +58,10 @@
 		<!-- History -->
 		<section v-if="history.length > 1" class="scotty-page__history">
 			<h2>Past Plans</h2>
-			<details v-for="plan in history.slice(1)" :key="plan.id" class="scotty-page__history-item">
-				<summary>Week of {{ formatDate(plan.week_start) }}</summary>
+			<details v-for="plan in history.slice(1)" :key="plan.id" class="scotty-page__section scotty-page__section--history">
+				<summary class="scotty-page__section-summary">
+					<span class="scotty-page__section-title">Week of {{ formatDate(plan.week_start) }}</span>
+				</summary>
 				<div class="scotty-page__plan-text" v-html="renderedHistory(plan)" />
 			</details>
 		</section>
@@ -164,29 +174,49 @@ function formatDate(iso) {
 		&--error { background: #7f1d1d; color: #fca5a5; }
 	}
 
-	&__digest {
-		margin-bottom: 2rem;
+	&__section {
+		border: 1px solid var(--color-border, #2a2a4a);
+		border-radius: 8px;
+		margin-bottom: 1rem;
+		overflow: hidden;
 
-		h2 {
-			font-size: 1.1rem;
-			margin: 0 0 0.5rem;
+		&--digest {
+			border-left: 3px solid var(--color-primary, #6366f1);
+		}
+
+		&--history {
+			opacity: 0.7;
+
+			&[open] { opacity: 1; }
 		}
 	}
 
-	&__plan {
-		h2 {
-			font-size: 1.1rem;
-			margin: 0 0 0.5rem;
-		}
-	}
-
-	&__section-header {
+	&__section-summary {
 		display: flex;
-		align-items: baseline;
+		align-items: center;
 		gap: 0.75rem;
-		margin-bottom: 0.75rem;
+		padding: 0.85rem 1.15rem;
+		cursor: pointer;
+		list-style: none;
 
-		h2 { margin: 0; }
+		&::-webkit-details-marker { display: none; }
+
+		&::before {
+			content: '▸';
+			font-size: 0.75rem;
+			transition: transform 0.15s ease;
+		}
+
+		details[open] > &::before {
+			transform: rotate(90deg);
+		}
+
+		&:hover { background: rgba(255, 255, 255, 0.03); }
+	}
+
+	&__section-title {
+		font-size: 1.05rem;
+		font-weight: 600;
 	}
 
 	&__meta {
@@ -196,15 +226,10 @@ function formatDate(iso) {
 
 	&__plan-text {
 		background: var(--color-card-bg, #1e1e3a);
-		border: 1px solid var(--color-border, #2a2a4a);
-		border-radius: 8px;
+		border-top: 1px solid var(--color-border, #2a2a4a);
 		padding: 1.5rem 1.75rem;
 		font-size: 0.9rem;
 		line-height: 1.7;
-
-		&--digest {
-			border-left: 3px solid var(--color-primary, #6366f1);
-		}
 
 		:deep(h1), :deep(h2), :deep(h3) {
 			margin: 1.25rem 0 0.4rem;
@@ -253,48 +278,11 @@ function formatDate(iso) {
 	}
 
 	&__history {
-		margin-top: 2rem;
+		margin-top: 1rem;
 
 		h2 {
 			font-size: 1.1rem;
 			margin: 0 0 1rem;
-		}
-	}
-
-	&__history-item {
-		border: 1px solid var(--color-border, #2a2a4a);
-		border-radius: 8px;
-		margin-bottom: 0.5rem;
-		overflow: hidden;
-
-		summary {
-			cursor: pointer;
-			padding: 0.75rem 1rem;
-			font-size: 0.9rem;
-			opacity: 0.7;
-			list-style: none;
-			display: flex;
-			align-items: center;
-			gap: 0.5rem;
-
-			&::before {
-				content: '›';
-				transition: transform 0.15s;
-			}
-
-			&:hover { opacity: 1; }
-		}
-
-		&[open] summary {
-			border-bottom: 1px solid var(--color-border, #2a2a4a);
-			opacity: 1;
-
-			&::before { transform: rotate(90deg); }
-		}
-
-		.scotty-page__plan-text {
-			border: none;
-			border-radius: 0;
 		}
 	}
 }

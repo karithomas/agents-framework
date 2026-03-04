@@ -262,3 +262,25 @@ export function getAgentSettings() {
 	const stmt = getDb().prepare('SELECT * FROM agent_settings');
 	return stmt.all();
 }
+
+export function resetAllData() {
+	const d = getDb();
+	d.exec(`
+		DELETE FROM settings;
+		DELETE FROM agent_settings;
+		DELETE FROM agent_runs;
+		DELETE FROM weekly_plans;
+		DELETE FROM daily_digests;
+		DELETE FROM ticket_breakdowns;
+	`);
+	// Re-seed defaults
+	const seed = d.prepare('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)');
+	seed.run('slack_enabled', 'false');
+	seed.run('slack_bot_token', '');
+	seed.run('slack_signing_secret', '');
+	seed.run('slack_user_id', '');
+	seed.run('linear_api_key', '');
+	seed.run('linear_user_id', '');
+	seed.run('onboarding_complete', 'false');
+	seed.run('lenny_post_to_linear', 'false');
+}

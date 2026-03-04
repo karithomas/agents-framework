@@ -31,6 +31,9 @@ contextBridge.exposeInMainWorld('agentsAPI', {
 	setAgentEnabled: (agentName, enabled) => ipcRenderer.invoke('set-agent-enabled', agentName, enabled),
 	getAgentSettings: () => ipcRenderer.invoke('get-agent-settings'),
 
+	// Data
+	resetAllData: () => ipcRenderer.invoke('reset-all-data'),
+
 	// launchd
 	getScheduleStatus: () => ipcRenderer.invoke('get-schedule-status'),
 	installSchedules: () => ipcRenderer.invoke('install-schedules'),

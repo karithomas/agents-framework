@@ -17,6 +17,7 @@ import {
 	isAgentEnabled,
 	setAgentEnabled,
 	getAgentSettings,
+	resetAllData,
 } from './db.js';
 import { getAgent, getAgentsSummary } from '../../core/agent-registry.js';
 import { getViewer } from '../../core/linear.js';
@@ -173,6 +174,11 @@ export function registerIpcHandlers() {
 		} catch (error) {
 			return { status: 'error', error: error.message };
 		}
+	});
+
+	ipcMain.handle('reset-all-data', () => {
+		resetAllData();
+		return true;
 	});
 
 	console.log('[IPC] All handlers registered');

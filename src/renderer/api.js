@@ -126,6 +126,13 @@ export async function getAgentSettings() {
 	return fetchJson('/api/agent-settings');
 }
 
+// --- Data ---
+
+export async function resetAllData() {
+	if (isElectron) return window.agentsAPI.resetAllData();
+	return fetchJson('/api/reset', { method: 'POST' });
+}
+
 // --- launchd ---
 
 export async function getScheduleStatus() {
