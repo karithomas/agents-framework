@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -35,25 +36,19 @@ function decryptIfNeeded(key, value) {
 
 /**
  * Determine the database path.
- * Electron: app.getPath('userData')/agents.db
+ * Electron: pass userDataPath from app.getPath('userData')
  * CLI/server: project-root/data/agents.db
  */
-function getDbPath() {
-	if (process.versions.electron) {
-		try {
-			const { app } = require('electron');
-			return path.join(app.getPath('userData'), 'agents.db');
-		} catch {
-			// Fall through to default path
-		}
-	}
+function getDbPath(userDataPath) {
+	if (userDataPath) return path.join(userDataPath, 'agents.db');
 	return path.join(__dirname, '../../data/agents.db');
 }
 
-export function initDatabase() {
+export function initDatabase(userDataPath) {
 	if (db) return db;
 
-	const dbPath = getDbPath();
+	const dbPath = getDbPath(userDataPath);
+	fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 	db = new Database(dbPath);
 	db.pragma('journal_mode = WAL');
 

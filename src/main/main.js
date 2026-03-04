@@ -35,7 +35,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-	initDatabase();
+	initDatabase(app.getPath('userData'));
 	registerIpcHandlers();
 	createWindow();
 
