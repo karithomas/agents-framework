@@ -18,6 +18,7 @@ import {
 	getAgentSettings,
 } from './db.js';
 import { getAgent, getAgentsSummary } from '../../core/agent-registry.js';
+import { getViewer } from '../../core/linear.js';
 
 export function registerIpcHandlers() {
 	// --- Agent Registry ---
@@ -87,6 +88,14 @@ export function registerIpcHandlers() {
 			logRunEnd(runId, 'error', null, error.message);
 			return { status: 'error', error: error.message };
 		}
+	});
+
+	// --- Linear ---
+	ipcMain.handle('linear-get-viewer', async (_event, apiKey) => {
+		const { LinearClient } = await import('@linear/sdk');
+		const tempClient = new LinearClient({ apiKey });
+		const me = await tempClient.viewer;
+		return { id: me.id, name: me.name, email: me.email };
 	});
 
 	// --- Settings ---

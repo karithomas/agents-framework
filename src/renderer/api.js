@@ -53,6 +53,16 @@ export async function getLatestDailyDigest() {
 	return fetchJson('/api/scotty/digest');
 }
 
+// --- Linear ---
+
+export async function linearGetViewer(apiKey) {
+	if (isElectron) return window.agentsAPI.linearGetViewer(apiKey);
+	return fetchJson('/api/linear/viewer', {
+		method: 'POST',
+		body: JSON.stringify({ apiKey }),
+	});
+}
+
 // --- Lenny ---
 
 export async function getTicketBreakdowns(limit = 20) {

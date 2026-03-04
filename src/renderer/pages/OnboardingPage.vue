@@ -18,21 +18,22 @@
 						type="password"
 						placeholder="lin_api_..."
 						class="onboarding__input"
+						@blur="lookupLinearUser"
 					/>
 				</label>
-				<label class="onboarding__field">
-					<span>User ID</span>
-					<input
-						v-model="form.linearUserId"
-						type="text"
-						placeholder="UUID"
-						class="onboarding__input"
-					/>
-				</label>
+				<div v-if="linearLooking" class="onboarding__status">
+					Verifying API key...
+				</div>
+				<div v-else-if="linearUser" class="onboarding__status onboarding__status--success">
+					Connected as {{ linearUser.name }} ({{ linearUser.email }})
+				</div>
+				<div v-else-if="linearError" class="onboarding__status onboarding__status--error">
+					{{ linearError }}
+				</div>
 				<div class="onboarding__actions">
 					<button
 						class="onboarding__btn onboarding__btn--primary"
-						:disabled="!form.linearApiKey || !form.linearUserId"
+						:disabled="!linearUser"
 						@click="step = 2"
 					>
 						Next
@@ -92,21 +93,38 @@
 <script setup>
 import { ref, reactive } from 'vue';
 import { useRouter } from 'vue-router';
-import { setSetting } from '../api.js';
+import { setSetting, linearGetViewer } from '../api.js';
 
 const router = useRouter();
 const step = ref(1);
 const slackEnabled = ref(false);
 const saving = ref(false);
 const error = ref('');
+const linearUser = ref(null);
+const linearLooking = ref(false);
+const linearError = ref('');
 
 const form = reactive({
 	linearApiKey: '',
-	linearUserId: '',
 	slackBotToken: '',
 	slackSigningSecret: '',
 	slackUserId: '',
 });
+
+async function lookupLinearUser() {
+	if (!form.linearApiKey) return;
+	linearUser.value = null;
+	linearError.value = '';
+	linearLooking.value = true;
+
+	try {
+		linearUser.value = await linearGetViewer(form.linearApiKey);
+	} catch (e) {
+		linearError.value = 'Invalid API key. Please check and try again.';
+	} finally {
+		linearLooking.value = false;
+	}
+}
 
 async function save() {
 	saving.value = true;
@@ -114,7 +132,7 @@ async function save() {
 
 	try {
 		await setSetting('linear_api_key', form.linearApiKey);
-		await setSetting('linear_user_id', form.linearUserId);
+		await setSetting('linear_user_id', linearUser.value.id);
 		await setSetting('slack_enabled', slackEnabled.value ? 'true' : 'false');
 
 		if (slackEnabled.value) {
@@ -202,6 +220,24 @@ async function save() {
 		&:focus {
 			outline: none;
 			border-color: var(--color-primary, #6366f1);
+		}
+	}
+
+	&__status {
+		font-size: 0.85rem;
+		padding: 0.5rem 0.75rem;
+		border-radius: 6px;
+		margin-bottom: 1rem;
+		opacity: 0.9;
+
+		&--success {
+			background: rgba(16, 185, 129, 0.1);
+			color: #6ee7b7;
+		}
+
+		&--error {
+			background: rgba(239, 68, 68, 0.1);
+			color: #fca5a5;
 		}
 	}
 

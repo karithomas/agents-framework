@@ -13,6 +13,9 @@ contextBridge.exposeInMainWorld('agentsAPI', {
 	getWeeklyPlanHistory: (limit) => ipcRenderer.invoke('get-weekly-plan-history', limit),
 	getLatestDailyDigest: () => ipcRenderer.invoke('get-latest-daily-digest'),
 
+	// Linear
+	linearGetViewer: (apiKey) => ipcRenderer.invoke('linear-get-viewer', apiKey),
+
 	// Lenny
 	getTicketBreakdowns: (limit) => ipcRenderer.invoke('get-ticket-breakdowns', limit),
 	processTicket: (ticketId) => ipcRenderer.invoke('process-ticket', ticketId),

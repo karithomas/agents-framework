@@ -13,6 +13,11 @@ function getClient() {
 	return client;
 }
 
+export async function getViewer() {
+	const me = await getClient().viewer;
+	return { id: me.id, name: me.name, email: me.email };
+}
+
 export async function getMyIssues(agentName) {
 	try {
 		const me = await getClient().viewer;
