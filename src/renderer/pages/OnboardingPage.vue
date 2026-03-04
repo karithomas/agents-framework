@@ -18,7 +18,6 @@
 						type="password"
 						placeholder="lin_api_..."
 						class="onboarding__input"
-						@blur="lookupLinearUser"
 					/>
 				</label>
 				<div v-if="linearLooking" class="onboarding__status">
@@ -31,6 +30,13 @@
 					{{ linearError }}
 				</div>
 				<div class="onboarding__actions">
+					<button
+						class="onboarding__btn"
+						:disabled="!form.linearApiKey || linearLooking || !!linearUser"
+						@click="lookupLinearUser"
+					>
+						{{ linearLooking ? 'Verifying...' : 'Confirm' }}
+					</button>
 					<button
 						class="onboarding__btn onboarding__btn--primary"
 						:disabled="!linearUser"
