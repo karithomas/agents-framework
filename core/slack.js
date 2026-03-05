@@ -1,5 +1,4 @@
 import { WebClient } from '@slack/web-api';
-import 'dotenv/config';
 import { getSetting } from '../src/main/db.js';
 
 let client;
@@ -7,8 +6,8 @@ let userId;
 
 function getClient() {
 	if (!client) {
-		const token = getSetting('slack_bot_token') || process.env.SLACK_BOT_TOKEN;
-		if (!token) throw new Error('Slack Bot Token not configured. Complete onboarding or set SLACK_BOT_TOKEN in .env');
+		const token = getSetting('slack_bot_token');
+		if (!token) throw new Error('Slack Bot Token not configured. Complete onboarding in Settings.');
 		client = new WebClient(token);
 	}
 	return client;
@@ -16,7 +15,7 @@ function getClient() {
 
 function getUserId() {
 	if (!userId) {
-		userId = getSetting('slack_user_id') || process.env.SLACK_YOUR_USER_ID;
+		userId = getSetting('slack_user_id');
 	}
 	return userId;
 }

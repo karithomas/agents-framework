@@ -44,6 +44,7 @@ export async function askClaude({ agentName, systemPrompt, userMessage }) {
 	// Strip CLAUDECODE env var to prevent nested session error
 	const env = { ...process.env };
 	delete env.CLAUDECODE;
+	delete env.ANTHROPIC_API_KEY;
 
 	console.log(`[${agentName}] Invoking Claude CLI...`);
 

@@ -8,7 +8,6 @@
  *
  * Used by launchd schedules and the "npm run lenny" script.
  */
-import 'dotenv/config';
 import { initDatabase, logRunStart, logRunEnd, isAgentEnabled } from '../src/main/db.js';
 import { processTicket, processAllActive, pollForNewTickets } from '../agents/lenny.js';
 

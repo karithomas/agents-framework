@@ -1,13 +1,12 @@
 import { LinearClient } from '@linear/sdk';
-import 'dotenv/config';
 import { getSetting } from '../src/main/db.js';
 
 let client;
 
 function getClient() {
 	if (!client) {
-		const apiKey = getSetting('linear_api_key') || process.env.LINEAR_API_KEY;
-		if (!apiKey) throw new Error('Linear API key not configured. Complete onboarding or set LINEAR_API_KEY in .env');
+		const apiKey = getSetting('linear_api_key');
+		if (!apiKey) throw new Error('Linear API key not configured. Complete onboarding in Settings.');
 		client = new LinearClient({ apiKey });
 	}
 	return client;

@@ -105,7 +105,9 @@ export async function processTicket(ticketId) {
 
 	let analysis;
 	try {
-		analysis = JSON.parse(raw);
+		const jsonMatch = raw.match(/\{[\s\S]*\}/);
+		if (!jsonMatch) throw new Error('No JSON object found');
+		analysis = JSON.parse(jsonMatch[0]);
 		analysis.needsSubIssues = false; // Temporarily disabled
 	} catch (e) {
 		console.error(`[${AGENT_NAME}] Failed to parse Claude response for ${ticketId}:`, raw);

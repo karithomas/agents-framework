@@ -8,7 +8,6 @@
  *
  * Used by launchd schedules and the "npm run scotty" / "npm run scotty:daily" scripts.
  */
-import 'dotenv/config';
 import { initDatabase, logRunStart, logRunEnd, isAgentEnabled } from '../src/main/db.js';
 import { buildWeeklyList, sendDailyDigest } from '../agents/scotty.js';
 
