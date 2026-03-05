@@ -88,7 +88,11 @@ export async function processTicket(ticketId) {
 	const ticket = await getIssueDetails(AGENT_NAME, ticketId);
 
 	if (hasLennysComment(ticket.comments)) {
-		console.log(`[${AGENT_NAME}] ${ticketId} already processed — skipping`);
+		console.log(`[${AGENT_NAME}] ${ticketId} already has comment — syncing to DB`);
+		const existing = ticket.comments.find((c) => c.body.includes('🤖 Lenny\'s Breakdown'));
+		const summaryMatch = existing.body.match(/^> (.+)$/m);
+		const summary = summaryMatch ? summaryMatch[1] : '';
+		saveTicketBreakdown(ticketId, ticket.title, summary, JSON.stringify({ summary, synced: true }), existing.body);
 		return;
 	}
 
