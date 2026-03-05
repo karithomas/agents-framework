@@ -6,7 +6,7 @@ export default {
 		asar: {
 			unpack: '**/*.node',
 		},
-		name: 'Agents Dashboard',
+		name: 'FpKaboom',
 	},
 	makers: [
 		{

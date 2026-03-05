@@ -1,5 +1,5 @@
 {
-	"name": "agents-framework",
+	"name": "fpkaboom",
 	"version": "2.0.0",
 	"main": ".vite/build/main.js",
 	"type": "module",
