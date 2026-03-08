@@ -26,9 +26,9 @@
 			{{ alert.message }}
 		</div>
 
-		<!-- Today's Focus -->
+		<!-- Today's Focus (only if digest is from today) -->
 		<details
-			v-if="dailyDigest"
+			v-if="dailyDigest && isDigestToday"
 			open
 			class="scotty-page__section scotty-page__section--digest"
 		>
@@ -54,6 +54,18 @@
 		<p v-else class="scotty-page__empty">
 			No weekly plan yet. Click "Build Weekly Plan" to generate one.
 		</p>
+
+		<!-- Stale daily focus (not from today, shown below weekly plan) -->
+		<details
+			v-if="dailyDigest && !isDigestToday"
+			class="scotty-page__section scotty-page__section--digest scotty-page__section--history"
+		>
+			<summary class="scotty-page__section-summary">
+				<span class="scotty-page__section-title">Latest Daily Focus</span>
+				<span class="scotty-page__meta">{{ formatDate(dailyDigest.digest_date) }}</span>
+			</summary>
+			<div class="scotty-page__plan-text scotty-page__plan-text--digest" v-html="renderedDigest" />
+		</details>
 
 		<!-- History -->
 		<section v-if="history.length > 1" class="scotty-page__history">
@@ -82,6 +94,11 @@ const alert = ref(null);
 
 const renderedPlan = computed(() => currentPlan.value ? marked.parse(currentPlan.value.plan_text) : '');
 const renderedDigest = computed(() => dailyDigest.value ? marked.parse(dailyDigest.value.digest_text) : '');
+const isDigestToday = computed(() => {
+	if (!dailyDigest.value?.digest_date) return false;
+	const today = new Date().toISOString().slice(0, 10);
+	return dailyDigest.value.digest_date.slice(0, 10) === today;
+});
 function renderedHistory(plan) { return marked.parse(plan.plan_text); }
 
 onMounted(async () => {
