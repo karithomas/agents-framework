@@ -1,7 +1,4 @@
 import { ipcMain } from 'electron';
-import { execSync } from 'child_process';
-import { existsSync } from 'fs';
-import path from 'path';
 import {
 	getRecentRuns,
 	logRunStart,
@@ -21,6 +18,7 @@ import {
 } from './db.js';
 import { getAgent, getAgentsSummary } from '../../core/agent-registry.js';
 import { getViewer } from '../../core/linear.js';
+import { getSchedulerStatus } from './scheduler.js';
 
 export function registerIpcHandlers() {
 	// --- Agent Registry ---
@@ -133,47 +131,9 @@ export function registerIpcHandlers() {
 		return getAgentSettings();
 	});
 
-	// --- launchd ---
+	// --- Schedules ---
 	ipcMain.handle('get-schedule-status', () => {
-		const labels = [
-			'com.agentsframework.scotty.weekly',
-			'com.agentsframework.scotty.daily',
-			'com.agentsframework.lenny.poll',
-		];
-
-		let loadedList = '';
-		try {
-			loadedList = execSync('launchctl list 2>/dev/null', { encoding: 'utf-8' });
-		} catch {
-			// Ignore
-		}
-
-		return labels.map((label) => {
-			const plistPath = path.join(process.env.HOME, 'Library/LaunchAgents', `${label}.plist`);
-			const installed = existsSync(plistPath);
-			const loaded = loadedList.includes(label);
-			return { label, installed, loaded };
-		});
-	});
-
-	ipcMain.handle('install-schedules', () => {
-		try {
-			const scriptPath = path.join(process.cwd(), 'scripts/launchd.js');
-			execSync(`node "${scriptPath}" install`, { encoding: 'utf-8' });
-			return { status: 'success' };
-		} catch (error) {
-			return { status: 'error', error: error.message };
-		}
-	});
-
-	ipcMain.handle('uninstall-schedules', () => {
-		try {
-			const scriptPath = path.join(process.cwd(), 'scripts/launchd.js');
-			execSync(`node "${scriptPath}" uninstall`, { encoding: 'utf-8' });
-			return { status: 'success' };
-		} catch (error) {
-			return { status: 'error', error: error.message };
-		}
+		return getSchedulerStatus();
 	});
 
 	ipcMain.handle('reset-all-data', () => {

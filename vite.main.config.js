@@ -20,7 +20,7 @@ export default defineConfig((env) => {
 				formats: ['es'],
 			},
 			rollupOptions: {
-				external: [...external, 'better-sqlite3'],
+				external: [...external, 'better-sqlite3', 'node-cron'],
 			},
 		},
 		plugins: [pluginHotRestart('restart')],

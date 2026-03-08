@@ -34,8 +34,6 @@ contextBridge.exposeInMainWorld('agentsAPI', {
 	// Data
 	resetAllData: () => ipcRenderer.invoke('reset-all-data'),
 
-	// launchd
+	// Schedules
 	getScheduleStatus: () => ipcRenderer.invoke('get-schedule-status'),
-	installSchedules: () => ipcRenderer.invoke('install-schedules'),
-	uninstallSchedules: () => ipcRenderer.invoke('uninstall-schedules'),
 });

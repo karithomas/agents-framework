@@ -133,19 +133,9 @@ export async function resetAllData() {
 	return fetchJson('/api/reset', { method: 'POST' });
 }
 
-// --- launchd ---
+// --- Schedules ---
 
 export async function getScheduleStatus() {
 	if (isElectron) return window.agentsAPI.getScheduleStatus();
 	return fetchJson('/api/schedule/status');
-}
-
-export async function installSchedules() {
-	if (isElectron) return window.agentsAPI.installSchedules();
-	return fetchJson('/api/schedule/install', { method: 'POST' });
-}
-
-export async function uninstallSchedules() {
-	if (isElectron) return window.agentsAPI.uninstallSchedules();
-	return fetchJson('/api/schedule/uninstall', { method: 'POST' });
 }

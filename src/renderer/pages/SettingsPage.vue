@@ -26,21 +26,19 @@
 			</div>
 		</section>
 
-		<!-- launchd Schedules -->
+		<!-- Schedules -->
 		<section class="settings-page__section">
-			<h2>Schedules (launchd)</h2>
+			<h2>Schedules</h2>
+			<p class="settings-page__schedule-info">Agents run automatically on their schedules while the app is open.</p>
 			<div v-if="schedules.length" class="settings-page__schedule-list">
-				<div v-for="s in schedules" :key="s.label" class="settings-page__schedule-row">
-					<span :class="`settings-page__dot settings-page__dot--${s.loaded ? 'green' : s.installed ? 'yellow' : 'grey'}`" />
-					<span class="settings-page__schedule-label">{{ s.label }}</span>
+				<div v-for="s in schedules" :key="`${s.agentName}:${s.scheduleKey}`" class="settings-page__schedule-row">
+					<span :class="`settings-page__dot settings-page__dot--${s.enabled ? 'green' : 'grey'}`" />
+					<span class="settings-page__schedule-label">{{ s.agentName }}</span>
+					<span class="settings-page__schedule-badge">{{ s.scheduleLabel }}</span>
 					<span class="settings-page__schedule-status">
-						{{ s.loaded ? 'Active' : s.installed ? 'Installed' : 'Not installed' }}
+						{{ s.enabled ? 'Active' : 'Disabled' }}
 					</span>
 				</div>
-			</div>
-			<div class="settings-page__schedule-actions">
-				<button class="settings-page__btn" @click="handleInstallSchedules">Install Schedules</button>
-				<button class="settings-page__btn settings-page__btn--danger" @click="handleUninstallSchedules">Uninstall Schedules</button>
 			</div>
 		</section>
 
@@ -146,8 +144,6 @@ import {
 	getSetting,
 	setSetting,
 	getScheduleStatus,
-	installSchedules,
-	uninstallSchedules,
 	resetAllData,
 } from '../api.js';
 
@@ -198,40 +194,11 @@ async function saveSetting(key, value) {
 	await setSetting(key, value);
 }
 
-async function handleInstallSchedules() {
-	alert.value = null;
-	try {
-		const result = await installSchedules();
-		if (result.status === 'success') {
-			alert.value = { type: 'success', message: 'Schedules installed' };
-			schedules.value = await getScheduleStatus();
-		} else {
-			alert.value = { type: 'error', message: result.error };
-		}
-	} catch (e) {
-		alert.value = { type: 'error', message: e.message };
-	}
-}
-
 async function handleReset() {
 	await resetAllData();
 	router.push('/onboarding');
 }
 
-async function handleUninstallSchedules() {
-	alert.value = null;
-	try {
-		const result = await uninstallSchedules();
-		if (result.status === 'success') {
-			alert.value = { type: 'success', message: 'Schedules uninstalled' };
-			schedules.value = await getScheduleStatus();
-		} else {
-			alert.value = { type: 'error', message: result.error };
-		}
-	} catch (e) {
-		alert.value = { type: 'error', message: e.message };
-	}
-}
 </script>
 
 <style lang="scss" scoped>
@@ -282,6 +249,12 @@ async function handleUninstallSchedules() {
 		opacity: 0.7;
 	}
 
+	&__schedule-info {
+		font-size: 0.85rem;
+		opacity: 0.7;
+		margin: 0 0 1rem;
+	}
+
 	&__schedule-list {
 		margin-bottom: 1rem;
 	}
@@ -300,7 +273,6 @@ async function handleUninstallSchedules() {
 		border-radius: 50%;
 
 		&--green { background: #34d399; }
-		&--yellow { background: #fbbf24; }
 		&--grey { background: #6b7280; }
 	}
 
@@ -313,11 +285,6 @@ async function handleUninstallSchedules() {
 	&__schedule-status {
 		opacity: 0.6;
 		font-size: 0.8rem;
-	}
-
-	&__schedule-actions {
-		display: flex;
-		gap: 0.75rem;
 	}
 
 	&__field {

@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { initDatabase } from './db.js';
 import { registerIpcHandlers } from './ipc-handlers.js';
+import { startScheduler, stopScheduler } from './scheduler.js';
 
 // Import agents so they register with the agent registry
 import '../../agents/scotty.js';
@@ -37,6 +38,7 @@ function createWindow() {
 app.whenReady().then(() => {
 	initDatabase(app.getPath('userData'));
 	registerIpcHandlers();
+	startScheduler();
 	createWindow();
 
 	app.on('activate', () => {
@@ -44,6 +46,10 @@ app.whenReady().then(() => {
 			createWindow();
 		}
 	});
+});
+
+app.on('will-quit', () => {
+	stopScheduler();
 });
 
 app.on('window-all-closed', () => {

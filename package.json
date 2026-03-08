@@ -11,9 +11,7 @@
 		"predev": "cd node_modules/better-sqlite3 && npx node-gyp rebuild --runtime=electron --target=$(npx electron --version | sed 's/v//') --arch=arm64 --dist-url=https://electronjs.org/headers",
 		"scotty": "node scripts/run-scotty.js",
 		"scotty:daily": "node scripts/run-scotty.js daily",
-		"lenny": "node scripts/run-lenny.js",
-		"launchd:install": "node scripts/launchd.js install",
-		"launchd:uninstall": "node scripts/launchd.js uninstall"
+		"lenny": "node scripts/run-lenny.js"
 	},
 	"keywords": [],
 	"author": "",
@@ -26,6 +24,7 @@
 		"dotenv": "^17.3.1",
 		"express": "^5.1.0",
 		"marked": "^17.0.3",
+		"node-cron": "^4.2.1",
 		"vue": "^3.5.0",
 		"vue-router": "^4.5.0"
 	},
