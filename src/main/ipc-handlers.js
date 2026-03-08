@@ -18,7 +18,7 @@ import {
 } from './db.js';
 import { getAgent, getAgentsSummary } from '../../core/agent-registry.js';
 import { getViewer } from '../../core/linear.js';
-import { getSchedulerStatus } from './scheduler.js';
+import { getSchedulerStatus, getScheduleConfigs, setScheduleConfig, resetScheduleConfig } from './scheduler.js';
 
 export function registerIpcHandlers() {
 	// --- Agent Registry ---
@@ -134,6 +134,20 @@ export function registerIpcHandlers() {
 	// --- Schedules ---
 	ipcMain.handle('get-schedule-status', () => {
 		return getSchedulerStatus();
+	});
+
+	ipcMain.handle('get-schedule-configs', () => {
+		return getScheduleConfigs();
+	});
+
+	ipcMain.handle('set-schedule-config', (_event, agentName, scheduleKey, config) => {
+		setScheduleConfig(agentName, scheduleKey, config);
+		return true;
+	});
+
+	ipcMain.handle('reset-schedule-config', (_event, agentName, scheduleKey) => {
+		resetScheduleConfig(agentName, scheduleKey);
+		return true;
 	});
 
 	ipcMain.handle('reset-all-data', () => {

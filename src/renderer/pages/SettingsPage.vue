@@ -30,14 +30,62 @@
 		<section class="settings-page__section">
 			<h2>Schedules</h2>
 			<p class="settings-page__schedule-info">Agents run automatically on their schedules while the app is open.</p>
-			<div v-if="schedules.length" class="settings-page__schedule-list">
-				<div v-for="s in schedules" :key="`${s.agentName}:${s.scheduleKey}`" class="settings-page__schedule-row">
-					<span :class="`settings-page__dot settings-page__dot--${s.enabled ? 'green' : 'grey'}`" />
-					<span class="settings-page__schedule-label">{{ s.agentName }}</span>
-					<span class="settings-page__schedule-badge">{{ s.scheduleLabel }}</span>
-					<span class="settings-page__schedule-status">
-						{{ s.enabled ? 'Active' : 'Disabled' }}
-					</span>
+			<div v-if="scheduleConfigs.length" class="settings-page__schedule-list">
+				<div v-for="sc in scheduleConfigs" :key="`${sc.agentName}:${sc.scheduleKey}`" class="settings-page__schedule-card">
+					<div class="settings-page__schedule-header">
+						<span class="settings-page__schedule-label">{{ sc.displayName }}</span>
+						<button
+							v-if="sc.isCustom"
+							class="settings-page__link"
+							@click="handleResetSchedule(sc.agentName, sc.scheduleKey)"
+						>
+							Reset to default
+						</button>
+					</div>
+
+					<!-- Calendar schedule (has days) -->
+					<template v-if="sc.config.days">
+						<div class="settings-page__day-row">
+							<label
+								v-for="(dayLabel, dayIndex) in dayLabels"
+								:key="dayIndex"
+								class="settings-page__day-toggle"
+								:class="{ 'settings-page__day-toggle--active': sc.config.days.includes(dayIndex) }"
+							>
+								<input
+									type="checkbox"
+									:checked="sc.config.days.includes(dayIndex)"
+									@change="toggleDay(sc, dayIndex)"
+								/>
+								{{ dayLabel }}
+							</label>
+						</div>
+						<div class="settings-page__time-row">
+							<span>Time:</span>
+							<input
+								type="time"
+								:value="formatTime(sc.config.hour, sc.config.minute)"
+								class="settings-page__input settings-page__input--time"
+								@change="updateTime(sc, $event.target.value)"
+							/>
+						</div>
+					</template>
+
+					<!-- Interval schedule (has intervalMinutes) -->
+					<template v-else-if="sc.config.intervalMinutes != null">
+						<div class="settings-page__interval-row">
+							<span>Every</span>
+							<input
+								type="number"
+								:value="sc.config.intervalMinutes"
+								min="1"
+								max="1440"
+								class="settings-page__input settings-page__input--interval"
+								@change="updateInterval(sc, parseInt($event.target.value, 10))"
+							/>
+							<span>minutes</span>
+						</div>
+					</template>
 				</div>
 			</div>
 		</section>
@@ -143,17 +191,20 @@ import {
 	setAgentEnabled,
 	getSetting,
 	setSetting,
-	getScheduleStatus,
+	getScheduleConfigs,
+	setScheduleConfig,
+	resetScheduleConfig,
 	resetAllData,
 } from '../api.js';
 
 const router = useRouter();
 const agents = ref([]);
 const agentEnabledMap = reactive({});
-const schedules = ref([]);
+const scheduleConfigs = ref([]);
 const slackEnabled = ref(false);
 const alert = ref(null);
 const confirmingReset = ref(false);
+const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const creds = reactive({
 	linearApiKey: '',
@@ -170,7 +221,7 @@ onMounted(async () => {
 		agentEnabledMap[agent.name] = await isAgentEnabled(agent.name);
 	}
 
-	schedules.value = await getScheduleStatus();
+	scheduleConfigs.value = await getScheduleConfigs();
 	slackEnabled.value = (await getSetting('slack_enabled')) === 'true';
 
 	creds.linearApiKey = (await getSetting('linear_api_key')) || '';
@@ -192,6 +243,55 @@ async function toggleSlack(enabled) {
 
 async function saveSetting(key, value) {
 	await setSetting(key, value);
+}
+
+function formatTime(hour, minute) {
+	return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+async function saveSchedule(sc) {
+	const config = JSON.parse(JSON.stringify(sc.config));
+	await setScheduleConfig(sc.agentName, sc.scheduleKey, config);
+	sc.isCustom = true;
+	showAlert('success', 'Schedule updated');
+}
+
+function toggleDay(sc, dayIndex) {
+	const days = [...sc.config.days];
+	const idx = days.indexOf(dayIndex);
+	if (idx >= 0) {
+		days.splice(idx, 1);
+	} else {
+		days.push(dayIndex);
+		days.sort((a, b) => a - b);
+	}
+	if (days.length === 0) return; // must have at least one day
+	sc.config.days = days;
+	saveSchedule(sc);
+}
+
+function updateTime(sc, timeStr) {
+	const [h, m] = timeStr.split(':').map(Number);
+	sc.config.hour = h;
+	sc.config.minute = m;
+	saveSchedule(sc);
+}
+
+function updateInterval(sc, minutes) {
+	if (!minutes || minutes < 1) return;
+	sc.config.intervalMinutes = minutes;
+	saveSchedule(sc);
+}
+
+async function handleResetSchedule(agentName, scheduleKey) {
+	await resetScheduleConfig(agentName, scheduleKey);
+	scheduleConfigs.value = await getScheduleConfigs();
+	showAlert('success', 'Schedule reset to default');
+}
+
+function showAlert(type, message) {
+	alert.value = { type, message };
+	setTimeout(() => { alert.value = null; }, 3000);
 }
 
 async function handleReset() {
@@ -256,35 +356,84 @@ async function handleReset() {
 	}
 
 	&__schedule-list {
-		margin-bottom: 1rem;
+		display: flex;
+		flex-direction: column;
+		gap: 1rem;
 	}
 
-	&__schedule-row {
+	&__schedule-card {
+		padding: 1rem;
+		border: 1px solid var(--color-border, #2a2a4a);
+		border-radius: 8px;
+		background: var(--color-card-bg, #1e1e3a);
+	}
+
+	&__schedule-header {
 		display: flex;
 		align-items: center;
-		gap: 0.5rem;
-		padding: 0.4rem 0;
-		font-size: 0.85rem;
-	}
-
-	&__dot {
-		width: 8px;
-		height: 8px;
-		border-radius: 50%;
-
-		&--green { background: #34d399; }
-		&--grey { background: #6b7280; }
+		justify-content: space-between;
+		margin-bottom: 0.75rem;
 	}
 
 	&__schedule-label {
-		flex: 1;
-		font-family: monospace;
-		font-size: 0.8rem;
+		font-weight: 600;
+		font-size: 0.9rem;
 	}
 
-	&__schedule-status {
-		opacity: 0.6;
+	&__link {
+		background: none;
+		border: none;
+		color: var(--color-primary, #6366f1);
+		cursor: pointer;
 		font-size: 0.8rem;
+		padding: 0;
+
+		&:hover { text-decoration: underline; }
+	}
+
+	&__day-row {
+		display: flex;
+		gap: 0.35rem;
+		margin-bottom: 0.75rem;
+	}
+
+	&__day-toggle {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		width: 2.5rem;
+		height: 2rem;
+		border: 1px solid var(--color-border, #3a3a5a);
+		border-radius: 4px;
+		cursor: pointer;
+		font-size: 0.75rem;
+		user-select: none;
+		background: transparent;
+
+		input { display: none; }
+
+		&--active {
+			background: var(--color-primary, #6366f1);
+			border-color: var(--color-primary, #6366f1);
+			color: #fff;
+		}
+	}
+
+	&__time-row,
+	&__interval-row {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		font-size: 0.85rem;
+	}
+
+	&__input--time {
+		max-width: 120px;
+	}
+
+	&__input--interval {
+		max-width: 80px;
+		text-align: center;
 	}
 
 	&__field {

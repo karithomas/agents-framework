@@ -139,3 +139,24 @@ export async function getScheduleStatus() {
 	if (isElectron) return window.agentsAPI.getScheduleStatus();
 	return fetchJson('/api/schedule/status');
 }
+
+export async function getScheduleConfigs() {
+	if (isElectron) return window.agentsAPI.getScheduleConfigs();
+	return fetchJson('/api/schedule/configs');
+}
+
+export async function setScheduleConfig(agentName, scheduleKey, config) {
+	if (isElectron) return window.agentsAPI.setScheduleConfig(agentName, scheduleKey, config);
+	return fetchJson('/api/schedule/config', {
+		method: 'PUT',
+		body: JSON.stringify({ agentName, scheduleKey, config }),
+	});
+}
+
+export async function resetScheduleConfig(agentName, scheduleKey) {
+	if (isElectron) return window.agentsAPI.resetScheduleConfig(agentName, scheduleKey);
+	return fetchJson('/api/schedule/config/reset', {
+		method: 'POST',
+		body: JSON.stringify({ agentName, scheduleKey }),
+	});
+}

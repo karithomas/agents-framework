@@ -36,4 +36,7 @@ contextBridge.exposeInMainWorld('agentsAPI', {
 
 	// Schedules
 	getScheduleStatus: () => ipcRenderer.invoke('get-schedule-status'),
+	getScheduleConfigs: () => ipcRenderer.invoke('get-schedule-configs'),
+	setScheduleConfig: (agentName, scheduleKey, config) => ipcRenderer.invoke('set-schedule-config', agentName, scheduleKey, config),
+	resetScheduleConfig: (agentName, scheduleKey) => ipcRenderer.invoke('reset-schedule-config', agentName, scheduleKey),
 });
